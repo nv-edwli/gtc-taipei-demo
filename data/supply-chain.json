@@ -1,0 +1,190 @@
+{
+  "stageLabels": {
+    "brief": "Demand brief",
+    "cuopt": "cuOpt",
+    "vision": "Vision Insights",
+    "aiq": "AIQ Research"
+  },
+  "skills": [
+    {
+      "stage": "brief",
+      "name": "Demo brief",
+      "icon": "DB",
+      "detail": "Loads demand, lane, cost, capacity, and resilience assumptions."
+    },
+    {
+      "stage": "cuopt",
+      "name": "cuOpt skill",
+      "icon": "CO",
+      "detail": "Solves routing and load assignment across Taiwan manufacturing nodes."
+    },
+    {
+      "stage": "vision",
+      "name": "Vision Insights",
+      "icon": "VI",
+      "detail": "Uses Nemotron Omni to interpret charts generated from the optimized plan."
+    },
+    {
+      "stage": "aiq",
+      "name": "AIQ Research",
+      "icon": "AI",
+      "detail": "Produces a research-backed business plan with risks and competitive context."
+    }
+  ],
+  "metrics": {
+    "baseline": [
+      {
+        "label": "Weekly logistics cost",
+        "value": 72,
+        "max": 100,
+        "display": "$7.2M"
+      },
+      {
+        "label": "Mean route cycle",
+        "value": 64,
+        "max": 100,
+        "display": "6.4 days"
+      },
+      {
+        "label": "Unassigned priority lots",
+        "value": 31,
+        "max": 100,
+        "display": "31 lots"
+      },
+      {
+        "label": "Capacity pressure",
+        "value": 88,
+        "max": 100,
+        "display": "88%"
+      }
+    ],
+    "optimized": [
+      {
+        "label": "Weekly logistics cost",
+        "value": 56,
+        "max": 100,
+        "display": "$5.6M"
+      },
+      {
+        "label": "Mean route cycle",
+        "value": 43,
+        "max": 100,
+        "display": "4.3 days"
+      },
+      {
+        "label": "Unassigned priority lots",
+        "value": 4,
+        "max": 100,
+        "display": "4 lots"
+      },
+      {
+        "label": "Capacity pressure",
+        "value": 71,
+        "max": 100,
+        "display": "71%"
+      }
+    ]
+  },
+  "capacity": {
+    "baseline": [
+      {
+        "label": "Taipei",
+        "value": 56
+      },
+      {
+        "label": "Hsinchu",
+        "value": 93
+      },
+      {
+        "label": "Taichung",
+        "value": 78
+      },
+      {
+        "label": "Tainan",
+        "value": 91
+      },
+      {
+        "label": "Port",
+        "value": 69
+      },
+      {
+        "label": "Air",
+        "value": 84
+      },
+      {
+        "label": "Buffer",
+        "value": 38
+      }
+    ],
+    "optimized": [
+      {
+        "label": "Taipei",
+        "value": 52
+      },
+      {
+        "label": "Hsinchu",
+        "value": 82
+      },
+      {
+        "label": "Taichung",
+        "value": 68
+      },
+      {
+        "label": "Tainan",
+        "value": 77
+      },
+      {
+        "label": "Port",
+        "value": 61
+      },
+      {
+        "label": "Air",
+        "value": 59
+      },
+      {
+        "label": "Buffer",
+        "value": 64
+      }
+    ]
+  },
+  "insights": {
+    "vision": {
+      "codex": "Nemotron Omni flags the optimized plan as more balanced: Hsinchu and Tainan move out of the critical band, air freight drops below the stress threshold, and buffer capacity becomes usable for demand spikes.",
+      "claude": "Nemotron Omni reads the chart as a meaningful utilization shift: the optimized assignment lowers peak stress at Hsinchu and Tainan while preserving enough buffer for late-stage expedite requests."
+    }
+  },
+  "businessPlan": {
+    "strategy": {
+      "summary": "The optimized network should be positioned as a resilient premium manufacturing corridor anchored by Hsinchu wafer supply, Taichung precision components, Tainan advanced packaging, and flexible Kaohsiung export capacity.",
+      "points": [
+        "Use cuOpt output as the operating plan for weekly production commitments and exception handling.",
+        "Package the route economics as a partner-facing proof point for CUDA-X accelerated planning.",
+        "Treat Taiwan routing resilience as the differentiator, not only cost reduction."
+      ]
+    },
+    "market": {
+      "summary": "The strongest buyer profile is an advanced electronics manufacturer that needs faster plan refresh, constrained supplier coordination, and auditable tradeoffs across cost, cycle time, and capacity risk.",
+      "points": [
+        "Compete against spreadsheet planning, generic supply-chain suites, and isolated operations research tooling.",
+        "Lead with accelerated solve time and packaged agent skills that turn optimization into business decisions.",
+        "Use GTC Taipei as the venue for partner validation with manufacturers, logistics providers, and systems integrators."
+      ]
+    },
+    "risk": {
+      "summary": "The plan is feasible if it treats route optimization as a decision support layer and keeps geopolitical, weather, capacity, and supplier constraints visible to operators.",
+      "points": [
+        "Maintain alternate port and air-freight lanes for typhoon season and port congestion events.",
+        "Require human approval for material changes to priority lots, supplier allocations, or customer commitments.",
+        "Track data freshness, supplier SLA quality, and exception drift as production readiness gates."
+      ]
+    },
+    "execution": {
+      "summary": "A credible pilot can start with weekly planning data, then expand into daily re-optimization, AIQ-backed market updates, and Vision Insights reviews of operational dashboards.",
+      "points": [
+        "Phase one: run cuOpt on historical and current weekly demand to validate savings and service levels.",
+        "Phase two: attach Vision Insights to planning dashboards for chart interpretation and anomaly triage.",
+        "Phase three: trigger AIQ Research reports for board-level business planning and partner strategy."
+      ]
+    }
+  }
+}

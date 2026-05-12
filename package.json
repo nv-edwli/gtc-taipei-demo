@@ -1,0 +1,20 @@
+{
+  "name": "gtc-taipei-cuda-x-supply-chain-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GTC Taipei demo UI showing CUDA-X skills orchestrating supply-chain optimization and AIQ research.",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node scripts/check.mjs"
+  },
+  "keywords": [
+    "nvidia",
+    "cuda-x",
+    "cuopt",
+    "aiq",
+    "gtc-taipei",
+    "agent-skills"
+  ],
+  "license": "UNLICENSED"
+}
