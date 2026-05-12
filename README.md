@@ -30,8 +30,8 @@ The test checks that the static assets and demo data are present and internally 
 - `index.html`, `styles.css`, `app.js`: single-page frontend.
 - `data/supply-chain.json`: scenario data, metric values, harness-specific insights, and business-plan sections.
 - `skills/cuopt/contract.md`: draft contract for the future cuOpt skill.
-- `skills/aiq-research/adapter.md`: notes for calling the existing AIQ Research skill.
-- `skills/vision-insights/adapter.md`: notes for calling Vision Insights with Nemotron Omni.
+- `skills/aiq-research/SKILL.md` (+ `scripts/aiq.py`): the AIQ Research skill.
+- `skills/vision-insights/SKILL.md` (+ `scripts/vision_analyze.py`): the Vision Insights skill (Nemotron Omni).
 - `docs/demo-script.md`: stage-by-stage talk track.
 - `docs/integration-plan.md`: path from mock adapters to live skill orchestration.
 

@@ -44,7 +44,7 @@ Replace the mock `metrics.optimized` and route animation trigger with the output
 Generate a chart image from the cuOpt result, then call:
 
 ```bash
-python3 ~/.claude/skills/vision-insights/scripts/vision_analyze.py \
+python3 skills/vision-insights/scripts/vision_analyze.py \
   --preset chart \
   --max-tokens 6000 \
   ./artifacts/cuopt-capacity.png
@@ -57,7 +57,7 @@ The returned final answer can populate the Vision Insights panel. Keep the raw m
 Start with auth:
 
 ```bash
-python3 ~/.claude/skills/aiq-research/scripts/aiq.py check-auth
+python3 skills/aiq-research/scripts/aiq.py check-auth
 ```
 
 Submit a research prompt containing:
