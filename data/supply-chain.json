@@ -5,6 +5,31 @@
     "vision": "Vision Insights",
     "aiq": "AIQ Research"
   },
+  "scenarioLoad": {
+    "total": 1240,
+    "unit": "weekly lots",
+    "display": "1,240 weekly lots",
+    "placeholder": "— weekly lots"
+  },
+  "scoreContext": {
+    "baseline": 41,
+    "optimized": 91,
+    "deltaLabel": "+50 readiness",
+    "baselineLabel": "baseline",
+    "optimizedLabel": "optimized"
+  },
+  "mapStatus": {
+    "baseline": "Baseline routing · stressed",
+    "solving": "Solving 1,240 lots…",
+    "solved": "Optimized lane found · cost −22%"
+  },
+  "closing": {
+    "eyebrow": "RUN COMPLETE",
+    "statusLabel": "Complete",
+    "ctaPrimary": "Review the plan",
+    "ctaSecondary": "Re-run demo",
+    "completeWithDuration": "Complete · {duration}s"
+  },
   "skills": [
     {
       "stage": "brief",
@@ -33,124 +58,118 @@
   ],
   "metrics": {
     "baseline": [
-      {
-        "label": "Weekly logistics cost",
-        "value": 72,
-        "max": 100,
-        "display": "$7.2M"
-      },
-      {
-        "label": "Mean route cycle",
-        "value": 64,
-        "max": 100,
-        "display": "6.4 days"
-      },
-      {
-        "label": "Unassigned priority lots",
-        "value": 31,
-        "max": 100,
-        "display": "31 lots"
-      },
-      {
-        "label": "Capacity pressure",
-        "value": 88,
-        "max": 100,
-        "display": "88%"
-      }
+      { "label": "Weekly logistics cost", "value": 72, "max": 100, "display": "$7.2M" },
+      { "label": "Mean route cycle", "value": 64, "max": 100, "display": "6.4 days" },
+      { "label": "Unassigned priority lots", "value": 31, "max": 100, "display": "31 lots" },
+      { "label": "Capacity pressure", "value": 88, "max": 100, "display": "88%" }
     ],
     "optimized": [
-      {
-        "label": "Weekly logistics cost",
-        "value": 56,
-        "max": 100,
-        "display": "$5.6M"
-      },
-      {
-        "label": "Mean route cycle",
-        "value": 43,
-        "max": 100,
-        "display": "4.3 days"
-      },
-      {
-        "label": "Unassigned priority lots",
-        "value": 4,
-        "max": 100,
-        "display": "4 lots"
-      },
-      {
-        "label": "Capacity pressure",
-        "value": 71,
-        "max": 100,
-        "display": "71%"
-      }
+      { "label": "Weekly logistics cost", "value": 56, "max": 100, "display": "$5.6M", "delta": "−$1.6M" },
+      { "label": "Mean route cycle", "value": 43, "max": 100, "display": "4.3 days", "delta": "−2.1 days" },
+      { "label": "Unassigned priority lots", "value": 4, "max": 100, "display": "4 lots", "delta": "−27 lots" },
+      { "label": "Capacity pressure", "value": 71, "max": 100, "display": "71%", "delta": "−17 pp" }
     ]
   },
   "capacity": {
     "baseline": [
-      {
-        "label": "Taipei",
-        "value": 56
-      },
-      {
-        "label": "Hsinchu",
-        "value": 93
-      },
-      {
-        "label": "Taichung",
-        "value": 78
-      },
-      {
-        "label": "Tainan",
-        "value": 91
-      },
-      {
-        "label": "Port",
-        "value": 69
-      },
-      {
-        "label": "Air",
-        "value": 84
-      },
-      {
-        "label": "Buffer",
-        "value": 38
-      }
+      { "label": "Taipei", "value": 56 },
+      { "label": "Hsinchu", "value": 93 },
+      { "label": "Taichung", "value": 78 },
+      { "label": "Tainan", "value": 91 },
+      { "label": "Port", "value": 69 },
+      { "label": "Air", "value": 84 },
+      { "label": "Buffer", "value": 38 }
     ],
     "optimized": [
-      {
-        "label": "Taipei",
-        "value": 52
-      },
-      {
-        "label": "Hsinchu",
-        "value": 82
-      },
-      {
-        "label": "Taichung",
-        "value": 68
-      },
-      {
-        "label": "Tainan",
-        "value": 77
-      },
-      {
-        "label": "Port",
-        "value": 61
-      },
-      {
-        "label": "Air",
-        "value": 59
-      },
-      {
-        "label": "Buffer",
-        "value": 64
-      }
+      { "label": "Taipei", "value": 52 },
+      { "label": "Hsinchu", "value": 82 },
+      { "label": "Taichung", "value": 68 },
+      { "label": "Tainan", "value": 77 },
+      { "label": "Port", "value": 61 },
+      { "label": "Air", "value": 59 },
+      { "label": "Buffer", "value": 64 }
     ]
   },
   "insights": {
     "vision": {
       "codex": "Nemotron Omni flags the optimized plan as more balanced: Hsinchu and Tainan move out of the critical band, air freight drops below the stress threshold, and buffer capacity becomes usable for demand spikes.",
       "claude": "Nemotron Omni reads the chart as a meaningful utilization shift: the optimized assignment lowers peak stress at Hsinchu and Tainan while preserving enough buffer for late-stage expedite requests."
+    }
+  },
+  "harness": {
+    "codex": {
+      "name": "Codex",
+      "voice": "Codex routes file-backed skill context into a repo-native run trace.",
+      "planPrefix": "Codex synthesis",
+      "glyph": "[file]",
+      "stages": {
+        "brief": {
+          "calling": "Codex reading Taiwan demand brief, constraints, and partner skill manifests from the workspace.",
+          "streaming": "Codex normalized 1,240 weekly lots, 180 priority, and resilience floors into the run context.",
+          "done": "Demand brief and skill manifests resolved."
+        },
+        "cuopt": {
+          "calling": "Codex invoking the cuOpt skill contract with 1,240 lots across six Taiwan lanes…",
+          "streaming": "Solver returned: cost −22%, mean cycle −33%, unassigned priority lots 31 → 4.",
+          "secondary": "Baseline lanes faded; feeder and port lanes attached as supporting context.",
+          "done": "Optimized lanes normalized for downstream skills."
+        },
+        "vision": {
+          "calling": "Codex streaming the capacity chart artifact to Vision Insights (Nemotron Omni)…",
+          "streaming": "Nemotron Omni: utilization rebalanced, Hsinchu and Tainan out of the critical band.",
+          "typing": "Writing operator-facing readout from the multimodal interpretation.",
+          "done": "Visual readout attached to the research brief."
+        },
+        "aiq": {
+          "calling": "Codex launched AIQ Research with the optimized supply-chain facts appended.",
+          "streaming": [
+            "Pulled competitive landscape · 12 sources",
+            "Indexed risk register · 7 sources",
+            "Mapped market segment · 9 sources",
+            "Synthesizing board-ready plan…"
+          ],
+          "elevate": "Synthesis converging — promoting the plan to the foreground.",
+          "summary": "Codex typing the Strategy section first; Market, Risk, and Execution tabs follow.",
+          "done": "Business plan synthesized with citations across strategy, market, risk, and execution."
+        }
+      }
+    },
+    "claude": {
+      "name": "Claude",
+      "voice": "Claude streams skill progress as a conversational agent harness using the same packaged skills.",
+      "planPrefix": "Claude synthesis",
+      "glyph": "~",
+      "stages": {
+        "brief": {
+          "calling": "Claude staging the Taiwan demand brief and preparing the cuOpt skill inputs.",
+          "streaming": "Claude framed 1,240 weekly lots and the priority/buffer constraints for the operator.",
+          "done": "Brief assembled — ready to call cuOpt."
+        },
+        "cuopt": {
+          "calling": "Claude calling the cuOpt skill contract over the same packaged manifest…",
+          "streaming": "Solver returned a cleaner plan: cost dropped 22%, cycle time eased to 4.3 days.",
+          "secondary": "Baseline routes recede; supporting lanes appear to round out the picture.",
+          "done": "Claude summarised the lane changes for downstream skills."
+        },
+        "vision": {
+          "calling": "Claude attaching the utilization chart to Vision Insights for Nemotron Omni interpretation.",
+          "streaming": "Nemotron Omni read the chart: a meaningful utilization shift across the network.",
+          "typing": "Claude turning the multimodal read into a one-line operator note.",
+          "done": "Vision readout joined the running narrative."
+        },
+        "aiq": {
+          "calling": "Claude submitting the business-plan request to AIQ Research with optimization evidence included.",
+          "streaming": [
+            "Gathered competitive landscape · 12 sources",
+            "Reviewed risk register · 7 sources",
+            "Mapped target market · 9 sources",
+            "Drafting the board-ready plan…"
+          ],
+          "elevate": "Synthesis converging — moving the plan to centre stage.",
+          "summary": "Claude writing Strategy first, then weaving Market, Risk, and Execution.",
+          "done": "Business plan synthesized with citations across strategy, market, risk, and execution."
+        }
+      }
     }
   },
   "businessPlan": {

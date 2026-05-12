@@ -32,9 +32,43 @@ for (const skill of data.skills) {
 }
 
 for (const harness of ["codex", "claude"]) {
-  if (!data.insights.vision[harness]) {
+  if (!data.insights?.vision?.[harness]) {
     throw new Error(`Missing Vision Insights copy for ${harness}`);
   }
+  if (!data.harness?.[harness]) {
+    throw new Error(`Missing harness configuration for ${harness}`);
+  }
+  const stageCopy = data.harness[harness].stages;
+  if (!stageCopy) {
+    throw new Error(`Missing harness.${harness}.stages`);
+  }
+  for (const stage of stages) {
+    if (!stageCopy[stage]) {
+      throw new Error(`Missing harness.${harness}.stages.${stage}`);
+    }
+    if (!stageCopy[stage].calling || !stageCopy[stage].done) {
+      throw new Error(`harness.${harness}.stages.${stage} must include calling and done copy`);
+    }
+  }
+  if (!Array.isArray(stageCopy.aiq.streaming) || stageCopy.aiq.streaming.length < 3) {
+    throw new Error(`harness.${harness}.stages.aiq.streaming must be an array of 3+ entries`);
+  }
+}
+
+for (const key of ["mapStatus", "closing", "scoreContext", "scenarioLoad"]) {
+  if (!data[key]) {
+    throw new Error(`Missing top-level data block: ${key}`);
+  }
+}
+
+for (const phase of ["baseline", "solving", "solved"]) {
+  if (!data.mapStatus[phase]) {
+    throw new Error(`Missing mapStatus.${phase}`);
+  }
+}
+
+if (typeof data.scoreContext.baseline !== "number" || typeof data.scoreContext.optimized !== "number") {
+  throw new Error("scoreContext.baseline and scoreContext.optimized must be numbers");
 }
 
 console.log("Static demo checks passed");

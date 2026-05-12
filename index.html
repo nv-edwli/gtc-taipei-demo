@@ -6,7 +6,7 @@
     <title>GTC Taipei CUDA-X Supply Chain Demo</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body>
+  <body data-harness="codex">
     <div class="app-shell">
       <header class="topbar">
         <a class="brand-lockup" href="./" aria-label="GTC Taipei CUDA-X demo home">
@@ -18,7 +18,7 @@
         </a>
 
         <div class="topbar-actions">
-          <div class="segmented" role="radiogroup" aria-label="Agent harness">
+          <div class="segmented" role="radiogroup" aria-label="Agent harness" id="harness-toggle">
             <button class="segment is-active" type="button" data-harness="codex" role="radio" aria-checked="true">
               <span class="segment-icon" aria-hidden="true">C</span>
               Codex
@@ -36,10 +36,14 @@
             </svg>
           </button>
           <button class="primary-action" type="button" id="run-demo">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="run-icon-play" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M8 5v14l11-7z"></path>
             </svg>
-            Run
+            <svg class="run-icon-rerun" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12a8 8 0 1 0 2.35-5.66"></path>
+              <path d="M4 5v5h5"></path>
+            </svg>
+            <span class="run-label">Run</span>
           </button>
         </div>
       </header>
@@ -63,6 +67,10 @@
             <strong id="run-status">Ready</strong>
           </div>
         </section>
+
+        <div class="workspace-progress-rail" aria-hidden="true">
+          <div class="fill" id="progress-rail-fill"></div>
+        </div>
 
         <section class="workspace-grid">
           <div class="stage-column">
@@ -91,13 +99,19 @@
                   <span class="eyebrow">Optimized network</span>
                   <h1 id="route-title">Taiwan manufacturing supply chain</h1>
                 </div>
-                <div class="route-score">
-                  <span id="route-score-value">0</span>
-                  <small>readiness</small>
+                <div class="route-score" id="route-score">
+                  <span class="route-score-value" id="route-score-value">41</span>
+                  <small class="route-score-label" id="route-score-label">baseline</small>
+                  <span class="route-score-delta" id="route-score-delta" hidden>+50</span>
                 </div>
               </div>
 
               <div class="map-wrap">
+                <div class="map-overlay-status is-baseline" id="map-status" aria-live="polite">
+                  <span class="status-dot-mini" aria-hidden="true"></span>
+                  <span id="map-status-text">Baseline routing · stressed</span>
+                </div>
+
                 <svg class="taiwan-map" viewBox="0 0 800 620" role="img" aria-labelledby="map-title map-desc">
                   <title id="map-title">Taiwan manufacturing and logistics route map</title>
                   <desc id="map-desc">A stylized map showing manufacturing, assembly, port, and airport nodes across Taiwan with optimized routes.</desc>
@@ -120,10 +134,10 @@
                   <path class="terrain-line" d="M461 78c8 82-11 151-43 212-31 60-76 112-112 167"></path>
                   <path class="terrain-line second" d="M510 173c-46 35-77 76-98 126-23 54-34 115-67 166"></path>
 
-                  <path class="baseline-route" d="M417 103 C520 166, 477 295, 378 343 S292 487, 340 538"></path>
+                  <path class="baseline-route" id="baseline-route" d="M417 103 C520 166, 477 295, 378 343 S292 487, 340 538"></path>
                   <path class="active-route" id="active-route" d="M417 103 C455 155, 436 231, 386 286 C352 322, 315 364, 305 423 C296 474, 317 512, 340 538"></path>
-                  <path class="feeder-route" d="M313 425 C232 403, 202 346, 239 281 C282 205, 360 151, 417 103"></path>
-                  <path class="port-route" d="M386 286 C467 313, 505 380, 459 446 C429 490, 379 517, 340 538"></path>
+                  <path class="feeder-route" id="feeder-route" d="M313 425 C232 403, 202 346, 239 281 C282 205, 360 151, 417 103"></path>
+                  <path class="port-route" id="port-route" d="M386 286 C467 313, 505 380, 459 446 C429 490, 379 517, 340 538"></path>
 
                   <g class="map-node" data-node="Taipei" transform="translate(417 103)">
                     <circle r="14"></circle>
@@ -159,7 +173,7 @@
 
                 <div class="map-overlay">
                   <span class="eyebrow">Scenario load</span>
-                  <strong id="scenario-load">1,240 weekly lots</strong>
+                  <strong id="scenario-load">— weekly lots</strong>
                 </div>
               </div>
             </article>
@@ -184,7 +198,9 @@
                 </div>
                 <span class="status-dot" id="console-dot" aria-hidden="true"></span>
               </div>
-              <ol class="run-console" id="run-console" aria-live="polite"></ol>
+              <div class="run-console-wrap">
+                <ol class="run-console" id="run-console" aria-live="polite"></ol>
+              </div>
             </section>
           </aside>
         </section>
@@ -193,7 +209,7 @@
           <article class="panel metric-panel" aria-labelledby="metrics-title">
             <div class="panel-heading">
               <div>
-                <span class="eyebrow">cuOpt result</span>
+                <span class="eyebrow" id="metrics-eyebrow">Baseline today</span>
                 <h2 id="metrics-title">Route economics</h2>
               </div>
             </div>
@@ -209,7 +225,7 @@
               <span class="confidence-chip" id="vision-confidence">standby</span>
             </div>
             <div class="mini-chart" id="mini-chart" aria-label="Capacity utilization chart"></div>
-            <p class="insight-copy" id="vision-copy">Awaiting optimized routing output.</p>
+            <p class="insight-copy" id="vision-copy">Awaiting Nemotron Omni readout on optimized utilization.</p>
           </article>
 
           <article class="panel plan-panel" aria-labelledby="plan-title">
@@ -220,14 +236,25 @@
               </div>
               <span class="confidence-chip" id="research-depth">queued</span>
             </div>
-            <div class="plan-tabs" role="tablist" aria-label="Business plan sections">
-              <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true">Strategy</button>
-              <button class="plan-tab" type="button" data-plan="market" role="tab" aria-selected="false">Market</button>
-              <button class="plan-tab" type="button" data-plan="risk" role="tab" aria-selected="false">Risk</button>
-              <button class="plan-tab" type="button" data-plan="execution" role="tab" aria-selected="false">Execution</button>
+            <div class="plan-tabs" role="tablist" aria-label="Business plan sections" id="plan-tabs">
+              <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true" aria-disabled="true">Strategy</button>
+              <button class="plan-tab" type="button" data-plan="market" role="tab" aria-selected="false" aria-disabled="true">Market</button>
+              <button class="plan-tab" type="button" data-plan="risk" role="tab" aria-selected="false" aria-disabled="true">Risk</button>
+              <button class="plan-tab" type="button" data-plan="execution" role="tab" aria-selected="false" aria-disabled="true">Execution</button>
             </div>
             <div class="plan-body" id="plan-body"></div>
           </article>
+        </section>
+
+        <section class="run-complete-bar" id="run-complete-bar" hidden aria-live="polite">
+          <div class="run-complete-text">
+            <span class="eyebrow" id="run-complete-eyebrow">Run complete</span>
+            <strong id="run-complete-summary">Plan synthesized — review or re-run the demo.</strong>
+          </div>
+          <div class="run-complete-actions">
+            <button class="ghost-action" type="button" id="cta-review">Review the plan</button>
+            <button class="ghost-action is-primary" type="button" id="cta-rerun">Re-run demo</button>
+          </div>
         </section>
       </main>
     </div>
