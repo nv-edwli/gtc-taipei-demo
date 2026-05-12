@@ -34,6 +34,7 @@ The test checks that the static assets and demo data are present and internally 
 - `skills/vision-insights/SKILL.md` (+ `scripts/vision_analyze.py`): the Vision Insights skill (Nemotron Omni).
 - `docs/demo-script.md`: stage-by-stage talk track.
 - `docs/integration-plan.md`: path from mock adapters to live skill orchestration.
+- `policies/my-assistant-policy.yaml`: OpenShell sandbox policy used by the live `my-assistant` sandbox that hosts the demo (apply with `openshell policy set my-assistant --policy policies/my-assistant-policy.yaml`).
 
 ## Intended Live Flow
 
