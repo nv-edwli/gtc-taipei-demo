@@ -2,9 +2,23 @@ import { createServer } from "node:http";
 import { createReadStream, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { networkInterfaces } from "node:os";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const port = Number(process.env.PORT || 4173);
+
+function parseArg(name) {
+  const argv = process.argv.slice(2);
+  const idx = argv.indexOf(`--${name}`);
+  if (idx === -1) return undefined;
+  const next = argv[idx + 1];
+  if (!next || next.startsWith("--")) return true;
+  return next;
+}
+
+const hostArg = parseArg("host");
+const portArg = parseArg("port");
+const host = typeof hostArg === "string" ? hostArg : "0.0.0.0";
+const port = Number(portArg || process.env.PORT || 4173);
 
 const types = {
   ".css": "text/css; charset=utf-8",
@@ -44,6 +58,16 @@ const server = createServer((req, res) => {
   createReadStream(filePath).pipe(res);
 });
 
-server.listen(port, "0.0.0.0", () => {
-  console.log(`GTC Taipei demo running at http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`GTC Taipei demo running:`);
+  console.log(`  Local:    http://localhost:${port}`);
+  if (host === "0.0.0.0") {
+    for (const ifaces of Object.values(networkInterfaces())) {
+      for (const iface of ifaces || []) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          console.log(`  Network:  http://${iface.address}:${port}`);
+        }
+      }
+    }
+  }
 });
