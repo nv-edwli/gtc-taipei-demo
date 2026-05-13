@@ -49,6 +49,32 @@
       </header>
 
       <main>
+        <section class="prompt-zone" aria-label="Research brief">
+          <div class="prompt-zone-head">
+            <div>
+              <span class="eyebrow">Research brief</span>
+              <h2 class="prompt-zone-title">Ask the agent</h2>
+            </div>
+            <div class="prompt-attached" id="prompt-attached" data-state="sample">
+              <span class="prompt-attached-pin" aria-hidden="true"></span>
+              <span class="prompt-attached-name" id="prompt-attached-name">sample-capacity.png</span>
+              <button class="prompt-attached-clear" type="button" id="prompt-attached-clear" aria-label="Detach image">✕</button>
+            </div>
+          </div>
+          <textarea id="prompt-input" class="prompt-input" rows="4" spellcheck="false" placeholder="Describe the research brief — the agent will decide which skills to call."></textarea>
+          <div class="prompt-footer">
+            <div class="prompt-actions">
+              <label class="prompt-attach-button" for="prompt-attach-input">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                Attach image
+              </label>
+              <input type="file" id="prompt-attach-input" accept="image/png,image/jpeg,image/webp" hidden>
+              <button class="prompt-reset-sample" type="button" id="prompt-reset-sample">Reset to sample image</button>
+            </div>
+            <p class="prompt-error" id="prompt-error" role="alert" hidden></p>
+          </div>
+        </section>
+
         <section class="command-strip" aria-label="Demo command state">
           <div>
             <span class="eyebrow">Active harness</span>
@@ -56,7 +82,7 @@
           </div>
           <div>
             <span class="eyebrow">Skill chain</span>
-            <strong>cuOpt -> Vision Insights -> AIQ Research</strong>
+            <strong>cuOpt · Vision Insights · AIQ Research</strong>
           </div>
           <div>
             <span class="eyebrow">Scenario</span>
@@ -65,6 +91,14 @@
           <div>
             <span class="eyebrow">Run status</span>
             <strong id="run-status">Ready</strong>
+          </div>
+          <div class="command-strip-sandbox">
+            <span class="eyebrow">Execution surface</span>
+            <button class="sandbox-chip is-unknown" type="button" id="sandbox-chip" aria-label="View openshell sandbox policy" aria-haspopup="dialog">
+              <span class="sandbox-chip-pip" aria-hidden="true"></span>
+              <span class="sandbox-chip-text" id="sandbox-chip-text">openshell · my-assistant</span>
+              <span class="sandbox-chip-info" aria-hidden="true">ⓘ</span>
+            </button>
           </div>
         </section>
 
@@ -234,7 +268,13 @@
                 <span class="eyebrow">AIQ research output</span>
                 <h2 id="plan-title">Business plan synthesis</h2>
               </div>
-              <span class="confidence-chip" id="research-depth">queued</span>
+              <div class="plan-heading-actions">
+                <span class="confidence-chip" id="research-depth">queued</span>
+                <button class="plan-expand" type="button" id="plan-expand" disabled aria-haspopup="dialog">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v6h6"></path><path d="M20 10V4h-6"></path><path d="M4 20l7-7"></path><path d="M20 4l-7 7"></path></svg>
+                  Expand
+                </button>
+              </div>
             </div>
             <div class="plan-tabs" role="tablist" aria-label="Business plan sections" id="plan-tabs">
               <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true" aria-disabled="true">Strategy</button>
@@ -242,14 +282,14 @@
               <button class="plan-tab" type="button" data-plan="risk" role="tab" aria-selected="false" aria-disabled="true">Risk</button>
               <button class="plan-tab" type="button" data-plan="execution" role="tab" aria-selected="false" aria-disabled="true">Execution</button>
             </div>
-            <div class="plan-body" id="plan-body"></div>
+            <div class="plan-body" id="plan-body" tabindex="0"></div>
           </article>
         </section>
 
         <section class="run-complete-bar" id="run-complete-bar" hidden aria-live="polite">
           <div class="run-complete-text">
             <span class="eyebrow" id="run-complete-eyebrow">Run complete</span>
-            <strong id="run-complete-summary">Plan synthesized — review or re-run the demo.</strong>
+            <strong id="run-complete-summary">Plan synthesized — review the plan or refine the brief and re-run.</strong>
           </div>
           <div class="run-complete-actions">
             <button class="ghost-action" type="button" id="cta-review">Review the plan</button>
@@ -258,6 +298,52 @@
         </section>
       </main>
     </div>
+
+    <aside class="plan-modal" id="plan-modal" hidden aria-hidden="true" aria-label="Business plan synthesis" role="dialog">
+      <div class="plan-modal-head">
+        <div>
+          <span class="eyebrow">AIQ research output</span>
+          <h2 id="plan-modal-title">Business plan synthesis</h2>
+        </div>
+        <div class="plan-modal-meta">
+          <span class="confidence-chip" id="plan-modal-chip">deep research</span>
+          <button class="icon-button" type="button" id="plan-modal-close" aria-label="Close plan">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6 L18 18 M6 18 L18 6"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="plan-modal-tabs" role="tablist" aria-label="Business plan sections (modal)">
+        <button class="plan-tab is-active" type="button" data-plan="strategy" data-plan-modal role="tab" aria-selected="true">Strategy</button>
+        <button class="plan-tab" type="button" data-plan="market" data-plan-modal role="tab" aria-selected="false">Market</button>
+        <button class="plan-tab" type="button" data-plan="risk" data-plan-modal role="tab" aria-selected="false">Risk</button>
+        <button class="plan-tab" type="button" data-plan="execution" data-plan-modal role="tab" aria-selected="false">Execution</button>
+      </div>
+      <div class="plan-modal-body" id="plan-modal-body" tabindex="0"></div>
+    </aside>
+    <div class="plan-modal-backdrop" id="plan-modal-backdrop" hidden></div>
+
+    <aside class="policy-drawer" id="policy-drawer" hidden aria-hidden="true" aria-label="openshell sandbox policy" role="dialog">
+      <div class="policy-drawer-head">
+        <div>
+          <span class="eyebrow">openshell sandbox</span>
+          <h2>my-assistant policy</h2>
+        </div>
+        <button class="icon-button" type="button" id="policy-drawer-close" aria-label="Close policy drawer">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6 L18 18 M6 18 L18 6"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="policy-drawer-summary" id="policy-drawer-summary">
+        <p>Both Claude Code and Codex run inside the openshell <code>my-assistant</code> sandbox with hardware-accelerated isolation, allowlisted network egress (Anthropic, OpenAI, NVIDIA inference, Brave search, package registries), GPU passthrough for local NIM endpoints, and read-only system mounts.</p>
+      </div>
+      <pre class="policy-drawer-content" id="policy-drawer-content" tabindex="0">Loading policy…</pre>
+    </aside>
+    <div class="policy-drawer-backdrop" id="policy-drawer-backdrop" hidden></div>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
     <script type="module" src="./app.js"></script>
   </body>

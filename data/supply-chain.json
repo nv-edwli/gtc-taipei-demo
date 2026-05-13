@@ -30,6 +30,14 @@
     "ctaSecondary": "Re-run demo",
     "completeWithDuration": "Complete · {duration}s"
   },
+  "skillMap": {
+    "vision_analyze.py": "vision",
+    "aiq.py": "aiq"
+  },
+  "sample": {
+    "imagePath": "/data/sample-capacity.png",
+    "imageLabel": "sample-capacity.png"
+  },
   "skills": [
     {
       "stage": "brief",

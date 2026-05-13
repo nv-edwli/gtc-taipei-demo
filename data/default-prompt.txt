@@ -1,0 +1,11 @@
+Research a business plan for an optimized Taiwan semiconductor supply chain.
+
+Use the Vision Insights skill (vision_analyze.py) to interpret the attached capacity-utilization chart — note which nodes are still under pressure, where buffer capacity has opened up, and what the operator should watch.
+
+Then call the AIQ Research skill (aiq.py) to do shallow research on:
+- competitive landscape for premium contract manufacturing routed through Taiwan
+- key feasibility risks (geopolitical, weather, supplier concentration)
+- buyer profile and go-to-market motions
+- a phased execution plan from pilot to production
+
+Stitch the visual interpretation and research findings into a single board-ready brief covering strategy, market, risk, and execution.

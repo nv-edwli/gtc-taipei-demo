@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command' | grep -qE 'openshell policy (set|update) my-assistant' && openshell policy get my-assistant --full | sed '1,/^---$/d' > /home/nvidia/gtc-taipei-demo/policies/my-assistant-policy.yaml || true",
+            "statusMessage": "Syncing my-assistant policy to repo"
+          }
+        ]
+      }
+    ]
+  }
+}

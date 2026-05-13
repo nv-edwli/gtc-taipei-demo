@@ -1,17 +1,33 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 
 const requiredFiles = [
   "index.html",
   "styles.css",
   "app.js",
   "server.mjs",
+  "server/orchestrator.mjs",
+  "server/sandbox.mjs",
+  "server/normalize-claude.mjs",
+  "server/normalize-codex.mjs",
   "data/supply-chain.json",
+  "data/default-prompt.txt",
+  "data/sample-capacity.png",
   "docs/demo-script.md",
-  "docs/integration-plan.md"
+  "docs/integration-plan.md",
+  "policies/my-assistant-policy.yaml"
 ];
 
 async function assertFile(path) {
-  const content = await readFile(new URL(`../${path}`, import.meta.url), "utf8");
+  const url = new URL(`../${path}`, import.meta.url);
+  let content;
+  try {
+    content = await readFile(url, "utf8");
+  } catch (err) {
+    // binary files (PNG): fall back to stat
+    const s = await stat(url);
+    if (s.size === 0) throw new Error(`${path} is empty`);
+    return null;
+  }
   if (!content.trim()) {
     throw new Error(`${path} is empty`);
   }
@@ -55,7 +71,7 @@ for (const harness of ["codex", "claude"]) {
   }
 }
 
-for (const key of ["mapStatus", "closing", "scoreContext", "scenarioLoad"]) {
+for (const key of ["mapStatus", "closing", "scoreContext", "scenarioLoad", "skillMap", "sample"]) {
   if (!data[key]) {
     throw new Error(`Missing top-level data block: ${key}`);
   }
@@ -69,6 +85,14 @@ for (const phase of ["baseline", "solving", "solved"]) {
 
 if (typeof data.scoreContext.baseline !== "number" || typeof data.scoreContext.optimized !== "number") {
   throw new Error("scoreContext.baseline and scoreContext.optimized must be numbers");
+}
+
+if (!data.skillMap["vision_analyze.py"] || !data.skillMap["aiq.py"]) {
+  throw new Error("skillMap must include entries for vision_analyze.py and aiq.py");
+}
+
+if (!data.sample.imagePath || !data.sample.imageLabel) {
+  throw new Error("sample.imagePath and sample.imageLabel are required");
 }
 
 console.log("Static demo checks passed");
