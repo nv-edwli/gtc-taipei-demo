@@ -110,6 +110,16 @@ AIQ_STARFLEET_CLIENT_ID = "yiOW0S_IzL5qY26huFw3xNzUX7RupZuzdawrNcPcH3w"  # pragm
 AIQ_SERVER_URL = _validate_aiq_base_url(os.environ.get("AIQ_SERVER_URL", "https://api.aiq.nvidia.com"))
 DEFAULT_AGENT_TYPE = "shallow_researcher"
 STARFLEET_CACHE_FILE = Path.home() / ".aiq" / "tokens" / "starfleet_credentials.json"
+
+# NVAuth (https://nv-auth.nvidia.com/tokens) issues long-lived bearer tokens
+# that the AIQ backend now requires for ECI / enterprise data lookups inside
+# shallow_researcher / deep_researcher jobs. When an NVAuth token is available,
+# we use it as the Authorization: Bearer token for ALL AIQ API calls, skipping
+# the Starfleet device-login flow. Lookup order:
+#   1. AIQ_NVAUTH_TOKEN env var (highest priority)
+#   2. ~/.aiq/tokens/nvauth_token file (0600 expected)
+# If neither is set, fall back to the Starfleet OAuth flow.
+NVAUTH_TOKEN_FILE = Path.home() / ".aiq" / "tokens" / "nvauth_token"
 STARFLEET_AUTH_BASE_URL = "https://login.nvidia.com"
 REFRESH_TOKEN_VALIDITY_SECONDS = 604800  # 7 days
 TOKEN_REFRESH_BUFFER_SECONDS = 300  # refresh 5 min before expiry
@@ -431,6 +441,32 @@ def _load_cached_credentials() -> dict | None:
         return None
 
 
+def _load_nvauth_token() -> str | None:
+    """Return an NVAuth bearer token if one is available via env or token file.
+
+    Lookup order: AIQ_NVAUTH_TOKEN env var → ~/.aiq/tokens/nvauth_token file.
+    Returns the raw JWT string (no leading "Bearer "), or None if neither is set.
+    Failures to read the file are reported on stderr but never raise.
+    """
+    env_token = os.environ.get("AIQ_NVAUTH_TOKEN", "").strip()
+    if env_token:
+        try:
+            return _validate_bearer_token(env_token)
+        except RuntimeError as e:
+            print(f"Warning: AIQ_NVAUTH_TOKEN rejected ({e}); falling back.", file=sys.stderr)
+            # fall through to file
+    if NVAUTH_TOKEN_FILE.exists():
+        try:
+            raw = NVAUTH_TOKEN_FILE.read_text(encoding="utf-8").strip()
+            if raw:
+                return _validate_bearer_token(raw)
+        except OSError as e:
+            print(f"Warning: could not read {NVAUTH_TOKEN_FILE}: {e}", file=sys.stderr)
+        except RuntimeError as e:
+            print(f"Warning: NVAuth token file rejected ({e}); falling back.", file=sys.stderr)
+    return None
+
+
 def _save_credentials(creds: dict) -> None:
     """Persist creds to the Starfleet cache path with restrictive file modes."""
     tokens_dir = STARFLEET_CACHE_FILE.parent
@@ -591,7 +627,15 @@ def _try_silent_refresh() -> bool:
 
 
 def get_token(force_login: bool = False) -> str:
-    """Get a valid Starfleet id_token, using cache → refresh → device flow."""
+    """Get a valid bearer token. Prefers NVAuth (long-lived, supports ECI);
+    falls back to Starfleet cache → refresh → device flow when no NVAuth
+    token is available. `force_login` skips both cached paths.
+    """
+    if not force_login:
+        nvauth = _load_nvauth_token()
+        if nvauth:
+            return nvauth
+
     client_id = AIQ_STARFLEET_CLIENT_ID
 
     if not force_login:
@@ -844,6 +888,12 @@ def main():
     cmd = sys.argv[1]
 
     if cmd == "check-auth":
+        # If an NVAuth bearer is available it satisfies auth for /chat,
+        # /submit, AND the downstream ECI lookups — so report ok without
+        # touching Starfleet.
+        if _load_nvauth_token():
+            print("ok")
+            sys.exit(0)
         if check_auth():
             print("ok")
             sys.exit(0)

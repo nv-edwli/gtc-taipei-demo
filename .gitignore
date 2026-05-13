@@ -5,3 +5,11 @@ coverage/
 .env
 .env.*
 *.log
+
+# Auth tokens — these live in $HOME/.aiq/tokens/ on host and /sandbox/.aiq/tokens/
+# inside the sandbox, never in the repo. Paranoid defense against a token file
+# being copied or symlinked into the project tree by accident.
+nvauth_token
+*.token
+starfleet_credentials.json
+.aiq/

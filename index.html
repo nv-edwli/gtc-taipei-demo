@@ -70,28 +70,28 @@
             <button class="stage-pill is-active" type="button" data-stage="brief" role="tab" id="stage-tab-brief" aria-selected="true" aria-controls="canvas-brief" tabindex="0">
               <span class="stage-index">01</span>
               <span class="stage-name">
-                <span class="stage-name-title">Demand brief</span>
+                <span class="stage-name-title">Task Overview</span>
                 <span class="stage-name-detail">Scenario &amp; baseline</span>
               </span>
             </button>
             <button class="stage-pill" type="button" data-stage="cuopt" role="tab" id="stage-tab-cuopt" aria-selected="false" aria-controls="canvas-cuopt" tabindex="-1">
               <span class="stage-index">02</span>
               <span class="stage-name">
-                <span class="stage-name-title">cuOpt solve</span>
+                <span class="stage-name-title">cuOpt Solve</span>
                 <span class="stage-name-detail">Optimized network</span>
               </span>
             </button>
             <button class="stage-pill" type="button" data-stage="vision" role="tab" id="stage-tab-vision" aria-selected="false" aria-controls="canvas-vision" tabindex="-1">
               <span class="stage-index">03</span>
               <span class="stage-name">
-                <span class="stage-name-title">Vision insights</span>
+                <span class="stage-name-title">Vision Insights</span>
                 <span class="stage-name-detail">Nemotron Omni</span>
               </span>
             </button>
             <button class="stage-pill" type="button" data-stage="aiq" role="tab" id="stage-tab-aiq" aria-selected="false" aria-controls="canvas-aiq" tabindex="-1">
               <span class="stage-index">04</span>
               <span class="stage-name">
-                <span class="stage-name-title">AIQ plan</span>
+                <span class="stage-name-title">AIQ Research</span>
                 <span class="stage-name-detail">Business synthesis</span>
               </span>
             </button>
@@ -104,7 +104,7 @@
         </nav>
 
         <section class="cockpit-canvas" id="cockpit-canvas">
-          <!-- Stage 1: Demand brief -->
+          <!-- Stage 1: Task Overview -->
           <div class="stage-canvas" id="canvas-brief" data-stage-canvas="brief" role="tabpanel" aria-labelledby="stage-tab-brief">
             <article class="panel prompt-panel" aria-labelledby="prompt-title">
               <div class="panel-heading">
@@ -228,7 +228,7 @@
             </div>
           </article>
 
-          <!-- Stage 2: cuOpt solve -->
+          <!-- Stage 2: cuOpt Solve -->
           <div class="stage-canvas" id="canvas-cuopt" data-stage-canvas="cuopt" role="tabpanel" aria-labelledby="stage-tab-cuopt" hidden>
             <article class="panel metric-panel" aria-labelledby="metrics-title">
               <div class="panel-heading">
@@ -241,7 +241,7 @@
             </article>
           </div>
 
-          <!-- Stage 3: Vision insights -->
+          <!-- Stage 3: Vision Insights -->
           <div class="stage-canvas" id="canvas-vision" data-stage-canvas="vision" role="tabpanel" aria-labelledby="stage-tab-vision" hidden>
             <article class="panel chart-panel" aria-labelledby="chart-title">
               <div class="panel-heading">
@@ -256,12 +256,12 @@
                   <img id="vision-image" alt="Image being analyzed by Vision Insights" />
                   <figcaption class="vision-image-caption" id="vision-image-caption">sample-capacity.png</figcaption>
                 </figure>
-                <p class="insight-copy" id="vision-copy">Awaiting Nemotron Omni readout on optimized utilization.</p>
+                <div class="insight-copy" id="vision-copy"></div>
               </div>
             </article>
           </div>
 
-          <!-- Stage 4: AIQ plan -->
+          <!-- Stage 4: AIQ Research -->
           <div class="stage-canvas" id="canvas-aiq" data-stage-canvas="aiq" role="tabpanel" aria-labelledby="stage-tab-aiq" hidden>
             <article class="panel plan-panel" aria-labelledby="plan-title">
               <div class="panel-heading">
@@ -269,13 +269,7 @@
                   <span class="eyebrow">AIQ research output</span>
                   <h2 id="plan-title">Business plan synthesis</h2>
                 </div>
-                <div class="plan-heading-actions">
-                  <span class="confidence-chip is-quiet" id="research-depth">queued</span>
-                  <button class="plan-expand" type="button" id="plan-expand" disabled aria-haspopup="dialog">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v6h6"></path><path d="M20 10V4h-6"></path><path d="M4 20l7-7"></path><path d="M20 4l-7 7"></path></svg>
-                    Expand
-                  </button>
-                </div>
+                <span class="confidence-chip is-quiet" id="research-depth">queued</span>
               </div>
               <div class="plan-tabs" role="tablist" aria-label="Business plan sections" id="plan-tabs">
                 <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true" aria-disabled="true">Strategy</button>
@@ -306,31 +300,6 @@
         </aside>
       </main>
     </div>
-
-    <aside class="plan-modal" id="plan-modal" hidden aria-hidden="true" aria-label="Business plan synthesis" role="dialog">
-      <div class="plan-modal-head">
-        <div>
-          <span class="eyebrow">AIQ research output</span>
-          <h2 id="plan-modal-title">Business plan synthesis</h2>
-        </div>
-        <div class="plan-modal-meta">
-          <span class="confidence-chip" id="plan-modal-chip">deep research</span>
-          <button class="icon-button" type="button" id="plan-modal-close" aria-label="Close plan">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 6 L18 18 M6 18 L18 6"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div class="plan-modal-tabs" role="tablist" aria-label="Business plan sections (modal)">
-        <button class="plan-tab is-active" type="button" data-plan="strategy" data-plan-modal role="tab" aria-selected="true">Strategy</button>
-        <button class="plan-tab" type="button" data-plan="market" data-plan-modal role="tab" aria-selected="false">Market</button>
-        <button class="plan-tab" type="button" data-plan="risk" data-plan-modal role="tab" aria-selected="false">Risk</button>
-        <button class="plan-tab" type="button" data-plan="execution" data-plan-modal role="tab" aria-selected="false">Execution</button>
-      </div>
-      <div class="plan-modal-body" id="plan-modal-body" tabindex="0"></div>
-    </aside>
-    <div class="plan-modal-backdrop" id="plan-modal-backdrop" hidden></div>
 
     <aside class="policy-drawer" id="policy-drawer" hidden aria-hidden="true" aria-label="openshell sandbox policy" role="dialog">
       <div class="policy-drawer-head">

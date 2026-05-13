@@ -66,6 +66,10 @@ COST = [
     [ 35,  70, 180, 320, 365,   0],  # taoyuan
 ]
 
+# Travel time in hours = km / typical truck speed (70 km/h). Same shape as COST.
+TRUCK_KMH = 70
+TRAVEL_TIME = [[round(c / TRUCK_KMH, 2) for c in row] for row in COST]
+
 # Per-node weekly lot demand (sums to 1,240 weekly lots per contract.md).
 TASK_LOCATIONS = [1, 2, 3, 4, 5]
 DEMAND = [380, 360, 220, 180, 100]
@@ -81,7 +85,7 @@ WEATHER_BUFFER_HOURS = 12  # contract.md requires weather_buffer_required
 def build_payload():
     return {
         "cost_matrix_data": {"data": {"0": COST}},
-        "travel_time_matrix_data": {"data": {"0": COST}},
+        "travel_time_matrix_data": {"data": {"0": TRAVEL_TIME}},
         "task_data": {
             "task_locations": TASK_LOCATIONS,
             "demand": [DEMAND],
@@ -103,20 +107,30 @@ def submit(payload):
 
 
 def poll(req_id):
+    """Returns (solver_response_dict, was_infeasible_bool) or (None, None) on timeout.
+
+    cuopt's solution endpoint returns either:
+      - {"reqId": "..."}                                         (still in flight)
+      - {"response": {"solver_response": {...}}}                 (solved)
+      - {"response": {"solver_infeasible_response": {...}}}      (infeasible — best-effort partial)
+    """
     deadline = time.time() + TIMEOUT_S
     while time.time() < deadline:
         try:
             status, body = _http_json("GET", f"{SERVER}/cuopt/solution/{req_id}", timeout=10)
         except urllib.error.HTTPError as e:
-            # cuopt returns 4xx while the solve is in flight; keep polling
             if e.code in (404, 425):
                 time.sleep(0.5)
                 continue
             raise
-        if status == 200 and body and "response" in body and "solver_response" in body["response"]:
-            return body["response"]["solver_response"]
+        if status == 200 and body and "response" in body:
+            inner = body["response"]
+            if "solver_response" in inner:
+                return inner["solver_response"], False
+            if "solver_infeasible_response" in inner:
+                return inner["solver_infeasible_response"], True
         time.sleep(0.5)
-    return None
+    return None, None
 
 
 def envelope_from_solution(sresp):
@@ -182,19 +196,18 @@ def main():
         sys.stderr.write(f"cuOpt request submission failed: {e}\n")
         sys.exit(2)
 
-    sresp = poll(req_id)
+    sresp, was_infeasible = poll(req_id)
     if sresp is None:
         sys.stderr.write(f"cuOpt solution polling timed out after {TIMEOUT_S}s (reqId={req_id})\n")
         sys.exit(3)
 
-    if sresp.get("status", -1) != 0:
-        sys.stderr.write(
-            f"cuOpt solver returned non-success status={sresp.get('status')}, "
-            f"message={sresp.get('error', '(none)')}\n"
-        )
-        sys.exit(4)
-
     envelope = envelope_from_solution(sresp)
+    if was_infeasible:
+        envelope["status"] = "infeasible"
+        envelope["explanation"] = (
+            f"cuOpt returned a best-effort INFEASIBLE solution (status={sresp.get('status')}). "
+            f"Partial routes served {len(sresp.get('vehicle_data', {}))} vehicles."
+        )
     json.dump(envelope, sys.stdout, indent=2)
     sys.stdout.write("\n")
 

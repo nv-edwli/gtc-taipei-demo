@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
 import { randomUUID } from "node:crypto";
 import { handleRun, cancelRun } from "./server/orchestrator.mjs";
-import { checkSandbox, syncSampleImage, syncUploadedImage } from "./server/sandbox.mjs";
+import { checkSandbox, syncSampleImage, syncUploadedImage, syncNvauthToken } from "./server/sandbox.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const UPLOAD_DIR = "/tmp/uploads";
@@ -287,5 +287,7 @@ server.listen(port, host, async () => {
   if (health.reachable) {
     const sample = await syncSampleImage();
     console.log(`  Sample:   ${sample.ok ? "uploaded to sandbox" : "sandbox sync failed (" + sample.reason + ")"}`);
+    const nv = await syncNvauthToken();
+    console.log(`  NVAuth:   ${nv.ok ? "uploaded to sandbox" : "skipped (" + nv.reason + ")"}`);
   }
 });
