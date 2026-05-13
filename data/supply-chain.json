@@ -40,28 +40,32 @@
   },
   "skills": [
     {
-      "stage": "brief",
-      "name": "Demo brief",
-      "icon": "DB",
-      "detail": "Loads demand, lane, cost, capacity, and resilience assumptions."
-    },
-    {
-      "stage": "cuopt",
-      "name": "cuOpt skill",
+      "id": "cuopt",
+      "name": "cuOpt",
       "icon": "CO",
-      "detail": "Solves routing and load assignment across Taiwan manufacturing nodes."
+      "detail": "GPU-accelerated routing & MILP solver over Taiwan lanes and nodes.",
+      "match": ["cuopt", "routing-formulation", "lp-milp", "cuopt-server", "cuopt-routing", "/cuopt/request", "/cuopt/solution"]
     },
     {
-      "stage": "vision",
+      "id": "max-supply",
+      "name": "Max-Supply",
+      "icon": "MS",
+      "detail": "Multi-period BOM planning model — formulates and modifies the max-supply MILP.",
+      "match": ["max-supply", "max_supply", "generic-max-supply", "cuopt-debugging"]
+    },
+    {
+      "id": "vision-insights",
       "name": "Vision Insights",
       "icon": "VI",
-      "detail": "Uses Nemotron Omni to interpret charts generated from the optimized plan."
+      "detail": "Nemotron Omni multimodal reasoning over charts, diagrams, and dashboards.",
+      "match": ["vision_analyze.py", "vision-insights", "vision_insights", "nemotron omni", "nemotron-omni"]
     },
     {
-      "stage": "aiq",
+      "id": "aiq-research",
       "name": "AIQ Research",
       "icon": "AI",
-      "detail": "Produces a research-backed business plan with risks and competitive context."
+      "detail": "NVIDIA AIQ Blueprint deep research — citation-backed enterprise analysis.",
+      "match": ["aiq.py", "aiq-research", "aiq_research", "deep_research_running", "research_poll"]
     }
   ],
   "metrics": {

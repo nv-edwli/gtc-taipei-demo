@@ -633,13 +633,24 @@ main.cockpit {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------- Rail footer (scenario + sandbox) ---------- */
+/* ---------- Rail header (scenario + sandbox) ---------- */
 
-.rail-footer {
+.rail-header {
   display: grid;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow);
+}
+
+.rail-header .rail-meta-title {
+  font-size: 0.95rem;
+}
+
+.rail-header .eyebrow {
+  margin-bottom: 4px;
 }
 
 .rail-meta {
@@ -725,6 +736,24 @@ main.cockpit {
   gap: 16px;
   min-width: 0;
   align-content: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Side-by-side layouts on the two stages where two panels share the canvas.
+   DOM order keeps the panels in their intended slots:
+     brief  → [prompt | map]      50/50 — both panels are co-equal
+     cuopt  → [map    | metrics]  map favored — the optimized network is the headline
+   align-items: stretch makes the two panels match heights.
+   Collapses to a single stacked column below 1280px (narrow viewports). */
+@media (min-width: 1280px) {
+  main.cockpit[data-active-stage="brief"] .cockpit-canvas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  main.cockpit[data-active-stage="cuopt"] .cockpit-canvas {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: stretch;
+  }
 }
 
 /* Stage-canvas visibility is driven by main.cockpit[data-active-stage]. */
@@ -794,8 +823,8 @@ main.cockpit[data-active-stage="aiq"]    [data-stage-canvas~="aiq"]    { display
   min-height: 0;
   /* No flex:1 here — parent (.cockpit-progress) is a grid container, so flex
      properties on this grid item have no effect. The panel sizes to its content;
-     the OL inside has its own min/max-height + scroll. */
-  overflow: hidden;
+     the OL inside has its own min/max-height + scroll. overflow stays visible
+     so the skill-chip hover tooltip can escape the panel boundary. */
 }
 
 .run-trace-panel .run-console-wrap {
@@ -823,34 +852,48 @@ h2 {
   line-height: 1.2;
 }
 
+/* The route-panel sits beside the prompt-panel (which uses h2) on brief and
+   beside the metric-panel (h2) on cuopt. Match the visual weight by overriding
+   the route-title h1 to the h2 scale. */
+#route-title {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+/* Keep the route-panel heading on a single row so the score badge sits beside
+   the title rather than wrapping to its own line in the narrower column. */
+.route-panel .panel-heading {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
 /* ---------- Route score ---------- */
 
 .route-score {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
   flex: 0 0 auto;
-  width: 86px;
-  height: 64px;
+  padding: 4px 10px;
   border: 1px solid rgba(118, 185, 0, 0.35);
-  border-radius: 8px;
+  border-radius: 999px;
   background: rgba(118, 185, 0, 0.12);
 }
 
 .route-score-value {
   color: var(--nvidia-green);
-  font-size: 1.6rem;
+  font-size: 0.95rem;
   font-weight: 950;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .route-score-label {
   color: var(--muted);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 800;
   text-transform: lowercase;
   letter-spacing: 0.04em;
-  margin-top: 2px;
 }
 
 .route-score-delta {
@@ -903,6 +946,34 @@ h2 {
   width: 100%;
   height: 100%;
   min-height: 440px;
+}
+
+/* Side-by-side stages: map shares the canvas row, so shrink its footprint. */
+@media (min-width: 1280px) {
+  main.cockpit[data-active-stage="brief"] .map-wrap,
+  main.cockpit[data-active-stage="cuopt"] .map-wrap {
+    min-height: 400px;
+  }
+  main.cockpit[data-active-stage="brief"] .taiwan-map,
+  main.cockpit[data-active-stage="cuopt"] .taiwan-map {
+    min-height: 400px;
+  }
+
+  /* cuOpt: metric panel should match the map panel's height. Same wrapper-chain
+     as the prompt-panel — #canvas-cuopt is the grid item, the panel is inside. */
+  main.cockpit[data-active-stage="cuopt"] #canvas-cuopt {
+    display: flex;
+    flex-direction: column;
+  }
+  main.cockpit[data-active-stage="cuopt"] .metric-panel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  main.cockpit[data-active-stage="cuopt"] .metric-bars {
+    flex: 1 1 auto;
+    align-content: space-around;
+  }
 }
 
 .island-shape {
@@ -1057,85 +1128,133 @@ h2 {
   box-shadow: 0 0 0 4px rgba(118, 185, 0, 0.22);
 }
 
-/* ---------- Skill stack ---------- */
+/* ---------- Packaged skills strip (inside the Live Trace panel) ---------- */
 
-.skill-stack {
+.trace-skills {
   display: grid;
-  gap: 8px;
-  padding: 0 14px 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 0 14px 12px;
 }
 
-.skill-item {
+.skill-chip {
+  position: relative;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
-  transition: border-color 240ms ease, background 240ms ease;
+  overflow: visible; /* needed so the hover tooltip can escape the chip */
+  transition: border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
+  cursor: default;
 }
 
-.skill-item.is-running {
-  border-color: var(--border-strong);
-  background: rgba(118, 185, 0, 0.10);
+.skill-chip.is-running {
+  border-color: var(--nvidia-green);
+  background: rgba(118, 185, 0, 0.14);
+  box-shadow: 0 0 0 1px rgba(118, 185, 0, 0.45), 0 0 18px -4px rgba(118, 185, 0, 0.35);
 }
 
-.skill-item.is-done {
-  border-color: rgba(118, 185, 0, 0.22);
-  background: rgba(118, 185, 0, 0.05);
+.skill-chip.is-running::after {
+  /* shimmer overlay */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0%, rgba(118, 185, 0, 0.18) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: stage-shimmer 1600ms linear infinite;
+  pointer-events: none;
 }
 
-.skill-icon {
+.skill-chip.is-done {
+  border-color: rgba(118, 185, 0, 0.45);
+  background: rgba(118, 185, 0, 0.08);
+}
+
+.skill-chip-icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   background: rgba(118, 185, 0, 0.16);
   color: var(--nvidia-green);
+  font-size: 0.7rem;
   font-weight: 950;
-  transition: background 240ms ease, color 240ms ease;
+  letter-spacing: 0.02em;
+  transition: background 220ms ease, color 220ms ease;
 }
 
-.skill-item.is-running .skill-icon {
+.skill-chip.is-running .skill-chip-icon {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.skill-name,
-.skill-detail {
-  display: block;
-}
-
-.skill-name {
+.skill-chip-name {
   font-weight: 900;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.skill-detail {
-  margin-top: 2px;
+.skill-chip-state {
   color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1.35;
-}
-
-.skill-state {
-  color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
-.skill-item.is-running .skill-state {
-  color: var(--accent);
+.skill-chip.is-running .skill-chip-state { color: var(--accent); }
+.skill-chip.is-done    .skill-chip-state { color: var(--nvidia-green); }
+
+/* ---- Hover tooltip surfacing the skill description ---- */
+
+.skill-chip[data-tooltip]:hover::before,
+.skill-chip[data-tooltip]:focus-visible::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 9999;
+  width: max-content;
+  max-width: 240px;
+  padding: 8px 12px;
+  border: 1px solid rgba(118, 185, 0, 0.65);
+  border-radius: 8px;
+  background: rgba(15, 19, 15, 0.96);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  animation: skill-tooltip-in 140ms ease-out;
+  pointer-events: none;
 }
 
-.skill-item.is-done .skill-state {
-  color: var(--nvidia-green);
+@keyframes skill-tooltip-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ---------- Divider between skills strip and run console ---------- */
+
+.trace-divider {
+  margin: 0 14px 12px;
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
 
 /* ---------- Run console ---------- */
@@ -1158,7 +1277,7 @@ h2 {
 .run-console {
   display: grid;
   gap: 10px;
-  max-height: calc(100vh - 360px);
+  max-height: min(420px, calc(100vh - 420px));
   min-height: 260px;
   margin: 0;
   padding: 0 14px 14px;
@@ -1795,6 +1914,36 @@ body.is-run-complete .plan-panel {
 
 .prompt-input::placeholder { color: var(--muted); }
 
+/* When brief shows prompt + map side-by-side, let the prompt panel stretch to
+   match the map panel's height. The prompt-panel sits inside a #canvas-brief
+   wrapper that is the actual grid item, so we have to chain flex:column through
+   the wrapper → panel → prompt-zone → textarea so each level can grow. */
+@media (min-width: 1280px) {
+  main.cockpit[data-active-stage="brief"] #canvas-brief {
+    display: flex;
+    flex-direction: column;
+  }
+  main.cockpit[data-active-stage="brief"] .prompt-panel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+  main.cockpit[data-active-stage="brief"] .prompt-panel .prompt-zone {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  main.cockpit[data-active-stage="brief"] .prompt-panel .prompt-input {
+    flex: 1 1 auto;
+    min-height: 200px;
+    max-height: none;
+  }
+  main.cockpit[data-active-stage="brief"] .prompt-panel .prompt-summary {
+    flex: 1 1 auto;
+  }
+}
+
 .prompt-footer {
   display: flex;
   align-items: center;
@@ -2364,11 +2513,11 @@ body.is-run-complete .plan-expand:not([disabled]) {
 
   .stage-index { margin: 0 auto 4px; }
 
-  .rail-footer {
+  .rail-header {
     grid-template-columns: 1fr auto;
     grid-auto-flow: column;
     align-items: center;
-    padding-top: 10px;
+    padding: 10px 12px;
   }
 
   .cockpit-progress {

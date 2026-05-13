@@ -53,6 +53,19 @@
 
       <main class="cockpit" data-active-stage="brief">
         <nav class="cockpit-rail" aria-label="Demo stages">
+          <div class="rail-header">
+            <div class="rail-meta">
+              <span class="eyebrow">Scenario</span>
+              <strong class="rail-meta-title">Advanced manufacturing · Taiwan</strong>
+              <span class="rail-meta-detail" id="scenario-load">— weekly lots</span>
+            </div>
+            <button class="sandbox-chip is-unknown" type="button" id="sandbox-chip" aria-label="View openshell sandbox policy" aria-haspopup="dialog">
+              <span class="sandbox-chip-pip" aria-hidden="true"></span>
+              <span class="sandbox-chip-text" id="sandbox-chip-text">openshell · my-assistant</span>
+              <span class="sandbox-chip-info" aria-hidden="true">ⓘ</span>
+            </button>
+          </div>
+
           <div class="rail-stages" role="tablist" aria-label="Demo stages">
             <button class="stage-pill is-active" type="button" data-stage="brief" role="tab" id="stage-tab-brief" aria-selected="true" aria-controls="canvas-brief" tabindex="0">
               <span class="stage-index">01</span>
@@ -88,19 +101,6 @@
             <span class="rail-resume-dot" aria-hidden="true"></span>
             <span>Resume follow</span>
           </button>
-
-          <div class="rail-footer">
-            <div class="rail-meta">
-              <span class="eyebrow">Scenario</span>
-              <strong class="rail-meta-title">Advanced manufacturing · Taiwan</strong>
-              <span class="rail-meta-detail" id="scenario-load">— weekly lots</span>
-            </div>
-            <button class="sandbox-chip is-unknown" type="button" id="sandbox-chip" aria-label="View openshell sandbox policy" aria-haspopup="dialog">
-              <span class="sandbox-chip-pip" aria-hidden="true"></span>
-              <span class="sandbox-chip-text" id="sandbox-chip-text">openshell · my-assistant</span>
-              <span class="sandbox-chip-info" aria-hidden="true">ⓘ</span>
-            </button>
-          </div>
         </nav>
 
         <section class="cockpit-canvas" id="cockpit-canvas">
@@ -284,24 +284,16 @@
         </section>
 
         <aside class="cockpit-progress" aria-label="Agent progress">
-          <section class="panel compact-panel" aria-labelledby="skill-stack-title">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow">Packaged skills</span>
-                <h2 id="skill-stack-title">CUDA-X orchestration</h2>
-              </div>
-            </div>
-            <div class="skill-stack" id="skill-stack"></div>
-          </section>
-
           <section class="panel compact-panel run-trace-panel" aria-labelledby="console-title">
             <div class="panel-heading">
               <div>
                 <span class="eyebrow">Live trace</span>
-                <h2 id="console-title">Run trace</h2>
+                <h2 id="console-title">CUDA-X Library Skills</h2>
               </div>
               <span class="status-dot" id="console-dot" aria-hidden="true"></span>
             </div>
+            <div class="trace-skills" id="skill-stack" role="list" aria-label="Packaged skills — hover for description"></div>
+            <hr class="trace-divider" aria-hidden="true">
             <div class="run-console-wrap">
               <ol class="run-console" id="run-console" aria-live="polite"></ol>
             </div>

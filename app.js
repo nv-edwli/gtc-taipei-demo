@@ -38,8 +38,15 @@ const state = {
   planTextAccumulator: "",
   planSections: null,
   aiqJobId: null,
-  hasInitializedVisionTypewriter: false
+  hasInitializedVisionTypewriter: false,
+
+  // Skill-stack live state (decoupled from stage flow).
+  // skillState[id] ∈ "idle" | "calling" | "done"
+  skillState: {},
+  skillFadeTimers: new Map()
 };
+
+const SKILL_ACTIVE_FADE_MS = 1400;
 
 const STAGE_LABELS = {
   brief: "Demand brief",
@@ -405,6 +412,7 @@ function applyIdleState() {
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   state.planModalAutoShown = false;
+  resetSkillState();
   if (els.planExpand) els.planExpand.disabled = true;
 
   setPromptView("editable");
@@ -541,25 +549,72 @@ function setPromptView(mode) {
   }
 }
 
+function resetSkillState() {
+  state.skillState = {};
+  if (state.skillFadeTimers) {
+    for (const t of state.skillFadeTimers.values()) clearTimeout(t);
+    state.skillFadeTimers.clear();
+  }
+}
+
+function matchSkill(name, input) {
+  if (!state.data || !state.data.skills) return null;
+  const probe = (String(name || "") + " " + (() => {
+    if (!input) return "";
+    if (typeof input === "string") return input;
+    try { return JSON.stringify(input); } catch (_) { return ""; }
+  })()).toLowerCase();
+  for (const skill of state.data.skills) {
+    const patterns = skill.match || [];
+    for (const pat of patterns) {
+      if (probe.includes(String(pat).toLowerCase())) return skill.id;
+    }
+  }
+  return null;
+}
+
+function markSkillCalled(skillId) {
+  if (!skillId) return;
+  state.skillState[skillId] = "calling";
+  if (state.skillFadeTimers.has(skillId)) {
+    clearTimeout(state.skillFadeTimers.get(skillId));
+    state.skillFadeTimers.delete(skillId);
+  }
+  renderSkillStack();
+}
+
+function markSkillCompleted(skillId) {
+  if (!skillId) return;
+  state.skillState[skillId] = "done";
+  if (state.skillFadeTimers.has(skillId)) {
+    clearTimeout(state.skillFadeTimers.get(skillId));
+  }
+  const timer = setTimeout(() => {
+    state.skillFadeTimers.delete(skillId);
+    renderSkillStack();
+  }, SKILL_ACTIVE_FADE_MS);
+  state.skillFadeTimers.set(skillId, timer);
+  renderSkillStack();
+}
+
 function renderSkillStack() {
   els.skillStack.innerHTML = state.data.skills.map((skill) => {
-    const sub = state.stageState[skill.stage];
-    const isRunning = sub === "calling" || sub === "streaming";
+    const sub = state.skillState[skill.id];
+    const isCalling = sub === "calling";
     const isDone = sub === "done";
-    const isSkipped = sub === "skipped";
-    let stateLabel = "queued";
-    if (sub === "calling") stateLabel = "calling";
-    else if (sub === "streaming") stateLabel = "streaming";
+    let stateLabel = "idle";
+    if (isCalling) stateLabel = "calling";
     else if (isDone) stateLabel = "ready";
-    else if (isSkipped) stateLabel = "skipped";
+    const aria = `${skill.name} — ${skill.detail}`;
     return `
-      <article class="skill-item ${isRunning ? "is-running" : ""} ${isDone ? "is-done" : ""} ${isSkipped ? "is-skipped" : ""}">
-        <span class="skill-icon" aria-hidden="true">${escapeHtml(skill.icon)}</span>
-        <span>
-          <span class="skill-name">${escapeHtml(skill.name)}</span>
-          <span class="skill-detail">${escapeHtml(skill.detail)}</span>
-        </span>
-        <span class="skill-state">${stateLabel}</span>
+      <article class="skill-chip ${isCalling ? "is-running" : ""} ${isDone ? "is-done" : ""}"
+               role="listitem"
+               data-skill="${escapeHtml(skill.id)}"
+               data-tooltip="${escapeHtml(skill.detail)}"
+               aria-label="${escapeHtml(aria)}">
+        <span class="skill-chip-icon" aria-hidden="true">${escapeHtml(skill.icon)}</span>
+        <span class="skill-chip-name">${escapeHtml(skill.name)}</span>
+        <span class="skill-chip-state">${stateLabel}</span>
       </article>
     `;
   }).join("");
@@ -876,6 +931,7 @@ function applyRunIdleSlate() {
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   state.planModalAutoShown = false;
+  resetSkillState();
   if (els.planExpand) els.planExpand.disabled = true;
   closePlanModal(true);
   state.stageState = { brief: "idle", cuopt: "idle", vision: "idle", aiq: "idle" };
@@ -1016,11 +1072,20 @@ function handleToolInvoked({ id, name, input, stage }) {
   } else if (state.stageState.cuopt === "idle" && stage === "general") {
     /* leave cuopt idle for skipping later */
   }
-  renderToolEntry({ id, name, stage, input, status: "running" });
+  const skillId = matchSkill(name, input);
+  if (skillId) markSkillCalled(skillId);
+  renderToolEntry({ id, name, stage, input, status: "running", skillId });
 }
 
 function handleToolCompleted({ id, name, stage, stdout, stderr, isError, durationMs }) {
   updateToolEntry({ id, status: isError ? "error" : "done", stdout, stderr, durationMs });
+  let skillId = null;
+  if (id) {
+    const li = els.console.querySelector(`.tool-entry[data-tool-id="${cssEscape(id)}"]`);
+    if (li && li.dataset.skillId) skillId = li.dataset.skillId;
+  }
+  if (!skillId) skillId = matchSkill(name, stdout);
+  if (skillId) markSkillCompleted(skillId);
 
   if (isError) {
     addConsoleEntry(stage || "general", `Tool ${name || ""} failed · expand entry for stderr.`);
@@ -1168,13 +1233,14 @@ function summarizeToolInput(name, input) {
   return truncate(json, 240);
 }
 
-function renderToolEntry({ id, name, stage, input, status }) {
+function renderToolEntry({ id, name, stage, input, status, skillId }) {
   const now = new Date();
   const stamp = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const li = document.createElement("li");
   li.className = "tool-entry";
   li.dataset.toolId = id || ("tu_" + Math.random().toString(36).slice(2, 8));
   li.dataset.status = status;
+  if (skillId) li.dataset.skillId = skillId;
   const inputPreview = summarizeToolInput(name, input);
   li.innerHTML = `
     <time>${stamp}</time>

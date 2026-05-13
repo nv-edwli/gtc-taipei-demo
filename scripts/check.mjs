@@ -41,9 +41,17 @@ for (const path of requiredFiles) {
 const data = JSON.parse(await assertFile("data/supply-chain.json"));
 const stages = new Set(Object.keys(data.stageLabels));
 
+const skillIds = new Set();
 for (const skill of data.skills) {
-  if (!stages.has(skill.stage)) {
-    throw new Error(`Skill ${skill.name} references missing stage ${skill.stage}`);
+  if (!skill.id || !skill.name || !skill.icon || !skill.detail) {
+    throw new Error(`Skill entry missing required fields (id, name, icon, detail): ${JSON.stringify(skill)}`);
+  }
+  if (skillIds.has(skill.id)) {
+    throw new Error(`Duplicate skill id: ${skill.id}`);
+  }
+  skillIds.add(skill.id);
+  if (!Array.isArray(skill.match) || skill.match.length === 0) {
+    throw new Error(`Skill ${skill.id} must define a non-empty match[] array of detection patterns`);
   }
 }
 
