@@ -1384,13 +1384,24 @@ body.is-run-complete .plan-panel {
 
 .metric-bars {
   display: grid;
+  /* Explicit fluid column so a narrow .metric-panel column doesn't get
+     pushed wider by inner nowrap content (strong + delta chip). Without
+     this the grid track defaults to `auto` ≈ min-content, which inherits
+     the children's nowrap floor and forces the bar-tracks to overflow
+     the panel on narrow viewports. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   padding: 0 18px 18px;
+  min-width: 0;
   transition: grid-template-columns 500ms ease, padding 500ms ease;
 }
 
 .metric-row {
   display: grid;
+  /* Allow the row (a grid item in .metric-bars) to shrink below its
+     content's intrinsic min-content width. Breaks the cascade started
+     by the nowrap strong + delta chip inside .metric-label. */
+  min-width: 0;
   gap: 7px;
   transition: gap 500ms ease;
 }
@@ -1400,6 +1411,7 @@ body.is-run-complete .plan-panel {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 800;
@@ -1600,12 +1612,6 @@ body.is-run-complete .plan-panel {
 }
 
 /* ---------- Plan panel ---------- */
-
-.plan-heading-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
 
 .plan-tabs {
   display: grid;
@@ -2193,164 +2199,6 @@ body.is-run-complete .plan-panel {
   white-space: pre;
 }
 
-/* ---------- Plan expand button (on the panel heading) ---------- */
-
-.plan-expand {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
-}
-
-.plan-expand:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
-  background: rgba(118, 185, 0, 0.08);
-}
-
-.plan-expand[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.plan-expand svg {
-  width: 12px;
-  height: 12px;
-  stroke: currentColor;
-  stroke-width: 2;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-body.is-run-complete .plan-expand:not([disabled]) {
-  color: var(--text);
-  border-color: rgba(118, 185, 0, 0.55);
-  background: rgba(118, 185, 0, 0.12);
-}
-
-/* ---------- Plan modal (focused reading) ---------- */
-
-.plan-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.58);
-  backdrop-filter: blur(4px);
-  z-index: 110;
-  opacity: 0;
-  transition: opacity 240ms ease;
-}
-
-.plan-modal-backdrop.is-visible { opacity: 1; }
-.plan-modal-backdrop[hidden] { display: none; }
-
-.plan-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: min(960px, calc(100vw - 32px));
-  max-height: min(820px, calc(100vh - 48px));
-  z-index: 111;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(118, 185, 0, 0.40);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(21, 26, 21, 0.98), rgba(12, 18, 12, 0.98));
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(118, 185, 0, 0.18);
-  transform: translate(-50%, calc(-50% + 18px));
-  opacity: 0;
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease;
-}
-
-.plan-modal.is-visible {
-  transform: translate(-50%, -50%);
-  opacity: 1;
-}
-
-.plan-modal[hidden] { display: none; }
-
-.plan-modal-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 22px 24px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.plan-modal-head h2 {
-  margin-top: 4px;
-  font-size: 1.1rem;
-  line-height: 1.2;
-}
-
-.plan-modal-head .plan-modal-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.plan-modal-tabs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  margin: 16px 24px 0;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.plan-modal-body {
-  flex: 1;
-  margin: 0;
-  padding: 20px 28px 28px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(118, 185, 0, 0.28) transparent;
-}
-
-.plan-modal-body:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -3px;
-}
-
-.plan-modal-body p {
-  margin: 0 0 14px 0;
-  color: #dfe5d9;
-  font-size: 0.96rem;
-  line-height: 1.65;
-}
-
-.plan-modal-body p:last-child { margin-bottom: 0; }
-
-.plan-modal-body .plan-prefix {
-  margin-bottom: 6px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.plan-modal-body .plan-prefix strong {
-  color: var(--accent);
-}
-
-.plan-modal-body .plan-live-body p {
-  margin: 0 0 14px 0;
-}
-
 /* ---------- Toast stack ---------- */
 
 .toast-stack {
@@ -2661,15 +2509,3 @@ body.is-run-complete .plan-expand:not([disabled]) {
   }
 }
 
-@media (max-width: 640px) {
-  .plan-modal {
-    width: calc(100vw - 16px);
-    max-height: calc(100vh - 24px);
-  }
-  .plan-modal-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 12px 16px 0;
-  }
-  .plan-modal-head { padding: 16px 18px 10px; }
-  .plan-modal-body { padding: 16px 20px 20px; }
-}

@@ -57,6 +57,24 @@ export async function syncUploadedImage(hostPath) {
   return uploadToSandbox(hostPath, SANDBOX_UPLOAD_DIR + "/");
 }
 
+// Sync the NVAuth bearer token from the host's `~/.aiq/tokens/nvauth_token`
+// to the sandbox's `/sandbox/.aiq/tokens/nvauth_token`. Idempotent — safe to
+// run on every server startup. If the host file is missing we silently skip;
+// the token may still be present in the sandbox from an earlier sync, or the
+// agent may be relying on Starfleet auth.
+//
+// IMPORTANT: the token itself never appears in this repo or in environment
+// variables we control. It lives only in the 0600 file on disk.
+export async function syncNvauthToken() {
+  const HOST_NVAUTH = process.env.HOME
+    ? `${process.env.HOME}/.aiq/tokens/nvauth_token`
+    : "/home/nvidia/.aiq/tokens/nvauth_token";
+  if (!existsSync(HOST_NVAUTH)) {
+    return { ok: false, reason: "no host NVAuth token at " + HOST_NVAUTH };
+  }
+  return uploadToSandbox(HOST_NVAUTH, "/sandbox/.aiq/tokens/");
+}
+
 export function checkSandbox(timeoutMs = 5000) {
   return new Promise((resolve) => {
     if (!existsSync(OPENSHELL_BIN)) {
@@ -150,6 +168,10 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   lines.push("  and do not fall back to `aiq.py chat`. The `research` command blocks for 20–60s while it polls server-side;");
   lines.push("  that wait is expected, not a failure. When it returns, its stdout will be the report JSON.");
   lines.push("- Keep each tool call focused; do not retry on transient errors more than twice.");
+  lines.push("- Run every skill script (cuOpt, vision_analyze.py, aiq.py) SYNCHRONOUSLY in the foreground. Do NOT");
+  lines.push("  invoke the Bash tool with `run_in_background: true` for these scripts — the UI relies on the tool's");
+  lines.push("  stdout being the actual command output, not the harness's `Command running in background with ID:`");
+  lines.push("  preamble. Each script blocks for tens of seconds; that wait is expected.");
   lines.push("");
   lines.push("Final synthesis output format (STRICT — the UI parses these headers):");
   lines.push("After your tool calls complete, emit the brief as your final assistant message,");

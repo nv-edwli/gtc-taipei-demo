@@ -1,7 +1,7 @@
 {
   "stageLabels": {
-    "brief": "Demand brief",
-    "cuopt": "cuOpt",
+    "brief": "Task Overview",
+    "cuopt": "cuOpt Solve",
     "vision": "Vision Insights",
     "aiq": "AIQ Research"
   },
@@ -118,7 +118,7 @@
         "brief": {
           "calling": "Codex reading Taiwan demand brief, constraints, and partner skill manifests from the workspace.",
           "streaming": "Codex normalized 1,240 weekly lots, 180 priority, and resilience floors into the run context.",
-          "done": "Demand brief and skill manifests resolved."
+          "done": "Task overview and skill manifests resolved."
         },
         "cuopt": {
           "calling": "Codex invoking the cuOpt skill contract with 1,240 lots across six Taiwan lanes…",

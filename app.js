@@ -32,8 +32,6 @@ const state = {
   attachedImageState: "sample",  // "sample" | "upload" | "none"
   policyText: null,
   policyDrawerOpen: false,
-  planModalOpen: false,
-  planModalAutoShown: false,
   visionTextAccumulator: "",
   planTextAccumulator: "",
   planSections: null,
@@ -43,16 +41,23 @@ const state = {
   // Skill-stack live state (decoupled from stage flow).
   // skillState[id] ∈ "idle" | "calling" | "done"
   skillState: {},
-  skillFadeTimers: new Map()
+  skillFadeTimers: new Map(),
+
+  // When Claude Code's harness backgrounds the vision_analyze.py Bash call
+  // (`run_in_background: true`), the first tool result is just the
+  // harness's "Command running in background with ID: …" preamble, not the
+  // real Nemotron output. We stash the bash_id here and watch subsequent
+  // tool results for the actual vision content. See handleToolCompleted.
+  visionBackgroundBashId: null
 };
 
 const SKILL_ACTIVE_FADE_MS = 1400;
 
 const STAGE_LABELS = {
-  brief: "Demand brief",
-  cuopt: "cuOpt solve",
-  vision: "Vision insights",
-  aiq: "AIQ plan"
+  brief: "Task Overview",
+  cuopt: "cuOpt Solve",
+  vision: "Vision Insights",
+  aiq: "AIQ Research"
 };
 
 const els = {};
@@ -225,13 +230,6 @@ function collectEls() {
   els.policyDrawerBackdrop = document.querySelector("#policy-drawer-backdrop");
   els.policyDrawerClose = document.querySelector("#policy-drawer-close");
 
-  els.planExpand = document.querySelector("#plan-expand");
-  els.planModal = document.querySelector("#plan-modal");
-  els.planModalBackdrop = document.querySelector("#plan-modal-backdrop");
-  els.planModalBody = document.querySelector("#plan-modal-body");
-  els.planModalClose = document.querySelector("#plan-modal-close");
-  els.planModalChip = document.querySelector("#plan-modal-chip");
-
   els.toastStack = document.querySelector("#toast-stack");
 }
 
@@ -275,14 +273,6 @@ function wireEvents() {
 
   els.resetButton.addEventListener("click", () => { resetRun(); });
 
-  els.planExpand.addEventListener("click", () => {
-    if (els.planExpand.disabled) return;
-    openPlanModal();
-  });
-
-  els.planModalClose.addEventListener("click", () => closePlanModal());
-  els.planModalBackdrop.addEventListener("click", () => closePlanModal());
-
   // Prompt
   els.promptInput.addEventListener("input", () => {
     try { sessionStorage.setItem(PROMPT_STORAGE_KEY, els.promptInput.value); } catch (_) {}
@@ -319,8 +309,7 @@ function wireEvents() {
   els.policyDrawerBackdrop.addEventListener("click", () => closePolicyDrawer());
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (state.planModalOpen) closePlanModal();
-    else if (state.policyDrawerOpen) closePolicyDrawer();
+    if (state.policyDrawerOpen) closePolicyDrawer();
   });
 }
 
@@ -372,7 +361,6 @@ function renderAll() {
 
 function applyIdleState() {
   els.body.classList.remove("is-running", "is-run-complete");
-  closePlanModal(true);
   els.runButton.classList.remove("is-rerun", "is-running");
   els.runButton.disabled = false;
   els.runLabel.textContent = "Run";
@@ -394,7 +382,7 @@ function applyIdleState() {
   els.console.innerHTML = "";
   els.visionConfidence.textContent = "standby";
   els.visionConfidence.className = "confidence-chip is-quiet";
-  els.visionCopy.textContent = "Awaiting Nemotron Omni readout on optimized utilization.";
+  renderVisionSkeleton();
   els.researchDepth.textContent = "queued";
   els.researchDepth.className = "confidence-chip is-quiet";
   els.metricsEyebrow.textContent = "Baseline today";
@@ -409,13 +397,12 @@ function applyIdleState() {
   state.completed = false;
   state.runId = null;
   state.visionTextAccumulator = "";
+  state.visionBackgroundBashId = null;
   state.planTextAccumulator = "";
   state.planSections = null;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
-  state.planModalAutoShown = false;
   resetSkillState();
-  if (els.planExpand) els.planExpand.disabled = true;
 
   setPromptView("editable");
   setActiveCanvas("brief", { animate: false });
@@ -524,7 +511,7 @@ function updateRunSubstatus() {
   const stage = state.autoFollowStage || "brief";
   const i = stageOrder.indexOf(stage);
   const idx = i >= 0 ? String(i + 1).padStart(2, "0") : "01";
-  const labels = { brief: "Demand brief", cuopt: "cuOpt solve", vision: "Vision insights", aiq: "AIQ plan" };
+  const labels = { brief: "Task Overview", cuopt: "cuOpt Solve", vision: "Vision Insights", aiq: "AIQ Research" };
   els.runStatus.textContent = `Stage ${idx} · ${labels[stage] || stage}`;
 }
 
@@ -730,6 +717,23 @@ function renderPlanSkeleton() {
   `;
 }
 
+function renderVisionSkeleton() {
+  if (!els.visionCopy) return;
+  // Reuse the .plan-skeleton classes for visual consistency with the
+  // AIQ Research idle state — shimmer rectangles stacked vertically.
+  els.visionCopy.innerHTML = `
+    <div class="plan-skeleton" aria-hidden="true">
+      <div class="skel line"></div>
+      <div class="skel line"></div>
+      <div class="skel short"></div>
+      <div class="skel gap"></div>
+      <div class="skel bullet"></div>
+      <div class="skel bullet b"></div>
+      <div class="skel bullet c"></div>
+    </div>
+  `;
+}
+
 function renderPlanResearching(fillPct) {
   const harness = state.data.harness[state.harness];
   els.planBody.innerHTML = `
@@ -820,10 +824,6 @@ function renderPlanLive() {
   const html = buildPlanBodyHtml();
   els.planBody.innerHTML = html;
   wirePlanJumpButtons(els.planBody);
-  if (els.planModalBody) {
-    els.planModalBody.innerHTML = html;
-    wirePlanJumpButtons(els.planModalBody);
-  }
 }
 
 function formatPlanText(text) {
@@ -996,14 +996,12 @@ async function startRun() {
 function applyRunIdleSlate() {
   els.console.innerHTML = "";
   state.visionTextAccumulator = "";
+  state.visionBackgroundBashId = null;
   state.planTextAccumulator = "";
   state.planSections = null;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
-  state.planModalAutoShown = false;
   resetSkillState();
-  if (els.planExpand) els.planExpand.disabled = true;
-  closePlanModal(true);
   state.stageState = { brief: "idle", cuopt: "idle", vision: "idle", aiq: "idle" };
   state.completedStages = new Set();
   state.autoFollowStage = "brief";
@@ -1013,7 +1011,7 @@ function applyRunIdleSlate() {
   els.routeScoreDelta.hidden = true;
   els.visionConfidence.textContent = "standby";
   els.visionConfidence.className = "confidence-chip is-quiet";
-  els.visionCopy.textContent = "Awaiting Nemotron Omni readout on optimized utilization.";
+  renderVisionSkeleton();
   els.researchDepth.textContent = "queued";
   els.researchDepth.className = "confidence-chip is-quiet";
   renderStages();
@@ -1150,6 +1148,14 @@ function handleToolInvoked({ id, name, input, stage }) {
     els.researchDepth.textContent = "researching";
     els.researchDepth.className = "confidence-chip is-analyzing";
     if (!document.querySelector(".plan-researching")) renderPlanResearching(0);
+    // Guard: if vision is still pending a backgrounded result when the agent
+    // moves on to AIQ, finalize vision so the UI doesn't hang in "analyzing".
+    // We accept whatever vision content we managed to capture (possibly none).
+    if (state.visionBackgroundBashId) {
+      addConsoleEntry("vision", "Vision background still pending when AIQ started — finalizing.");
+      finalizeVisionDone();
+      state.visionBackgroundBashId = null;
+    }
   } else if (state.stageState.cuopt === "idle" && stage === "general") {
     /* leave cuopt idle for skipping later */
   }
@@ -1174,22 +1180,64 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
 
   if (stage === "vision" && !isError) {
     const cleaned = (stdout || "").trim();
-    if (cleaned) {
-      const summary = extractVisionSummary(cleaned);
+    // Layer 2: when the agent invokes vision_analyze.py with run_in_background:
+    // true, Claude Code's harness immediately returns a "Command running in
+    // background with ID: …" preamble instead of the real Nemotron output.
+    // Treat this as still-pending, not as the actual result.
+    const bgMatch = cleaned.match(/Command running in background with ID:\s*([\w-]+)/i);
+    if (bgMatch) {
+      state.visionBackgroundBashId = bgMatch[1];
+      // Keep the analyzing UI state; the skeleton stays.
+      setStageSubstate("vision", "streaming");
+      addConsoleEntry("vision", `Vision call backgrounded by harness (bash id ${bgMatch[1].slice(0, 8)}). Waiting for real output…`);
+    } else {
+      if (cleaned) {
+        const summary = extractVisionSummary(cleaned);
+        state.visionTextAccumulator = summary;
+        updateVisionCopy(summary);
+      }
+      finalizeVisionDone();
+    }
+  }
+
+  // Layer 3: a vision call is sitting in the background. Watch every later tool
+  // result — regardless of inferred stage — for the structured Nemotron section
+  // markers. The agent could surface the real output via BashOutput(bash_id),
+  // Read(<.output file>), or `cat <.output file>`; we don't care which path,
+  // only that the stdout looks like a Nemotron readout.
+  if (state.visionBackgroundBashId && !isError && stage !== "vision" && looksLikeVisionResult(stdout)) {
+    const summary = extractVisionSummary(stdout);
+    if (summary) {
       state.visionTextAccumulator = summary;
       updateVisionCopy(summary);
+      finalizeVisionDone();
+      state.visionBackgroundBashId = null;
+      addConsoleEntry("vision", "Captured backgrounded Vision Insights output.");
     }
-    els.visionConfidence.textContent = "high confidence";
-    els.visionConfidence.className = "confidence-chip";
-    if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
-    setStageSubstate("vision", "done");
-    const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
-    if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
   }
 
   if (stage === "aiq") {
     parseAiqToolOutput(stdout || "", name, isError);
   }
+}
+
+// Shared vision-done UI commit, used by both the synchronous and the
+// recovered-from-background paths.
+function finalizeVisionDone() {
+  els.visionConfidence.textContent = "high confidence";
+  els.visionConfidence.className = "confidence-chip";
+  if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
+  setStageSubstate("vision", "done");
+  const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
+  if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
+}
+
+// Heuristic: does this stdout look like a real Nemotron readout? We require
+// at least one of the structured section markers the vision-insights chart
+// preset asks Nemotron to emit (skills/vision-insights/scripts/vision_analyze.py).
+function looksLikeVisionResult(text) {
+  if (!text || text.length < 80) return false;
+  return /(?:^|\n)\s*(?:\*\*|#{1,3}\s+)(?:observations?|insights?|key\s+insights?|actionable\s+recommendations?|summary|conclusion)\b/i.test(text);
 }
 
 function parseAiqToolOutput(stdout, _name, isError) {
@@ -1789,7 +1837,7 @@ function finishRun(data) {
     els.routeScoreDelta.textContent = "+" + (state.currentScore - state.baselineScore);
   }
 
-  // Land canvas on Stage 4 (AIQ plan) — even if the user was peeking elsewhere,
+  // Land canvas on Stage 4 (AIQ Research) — even if the user was peeking elsewhere,
   // the run-completion event reorients them to the synthesized output.
   state.autoFollowStage = "aiq";
   state.peekMode = false;
@@ -1799,15 +1847,6 @@ function finishRun(data) {
   // Re-render the plan body in case typewriter was mid-stream
   if (state.planTextAccumulator) renderPlanLive();
   renderPlanTabs();
-
-  // Enable the Expand button + auto-open the modal once when synthesis is available
-  if (state.planTextAccumulator) {
-    els.planExpand.disabled = false;
-    if (!state.planModalAutoShown) {
-      state.planModalAutoShown = true;
-      setTimeout(() => openPlanModal(), 1100);
-    }
-  }
 
   triggerTabWave();
   const cost = data && data.costUsd ? ` · $${Number(data.costUsd).toFixed(4)}` : "";
@@ -2025,44 +2064,6 @@ function closePolicyDrawer() {
     els.policyDrawerBackdrop.hidden = true;
     els.policyDrawer.setAttribute("aria-hidden", "true");
   }, 280);
-}
-
-/* ============================================================
- * Plan modal
- * ============================================================ */
-
-function openPlanModal() {
-  if (state.planModalOpen) return;
-  if (!state.planTextAccumulator) return;
-  state.planModalOpen = true;
-  renderPlanLive();
-  if (els.planModalChip) {
-    els.planModalChip.textContent = els.researchDepth.textContent || "deep research";
-  }
-  els.planModal.hidden = false;
-  els.planModalBackdrop.hidden = false;
-  els.planModal.setAttribute("aria-hidden", "false");
-  requestAnimationFrame(() => {
-    els.planModal.classList.add("is-visible");
-    els.planModalBackdrop.classList.add("is-visible");
-  });
-  setTimeout(() => {
-    try { els.planModalBody.focus({ preventScroll: true }); } catch (_) {}
-  }, 60);
-}
-
-function closePlanModal(immediate = false) {
-  if (!state.planModalOpen) return;
-  state.planModalOpen = false;
-  els.planModal.classList.remove("is-visible");
-  els.planModalBackdrop.classList.remove("is-visible");
-  const finalize = () => {
-    els.planModal.hidden = true;
-    els.planModalBackdrop.hidden = true;
-    els.planModal.setAttribute("aria-hidden", "true");
-  };
-  if (immediate) finalize();
-  else setTimeout(finalize, 280);
 }
 
 /* ============================================================
