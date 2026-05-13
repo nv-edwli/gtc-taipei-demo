@@ -6,7 +6,9 @@ const PROMPT_STORAGE_KEY = "gtc-taipei-prompt-draft";
 const state = {
   data: null,
   harness: "codex",
-  activeStage: "brief",
+  activeStage: "brief",            // Canvas the user is viewing
+  autoFollowStage: "brief",        // Stage the agent is actually on
+  peekMode: false,                 // True when user has clicked away during a run
   activePlan: "strategy",
   running: false,
   completed: false,
@@ -14,7 +16,6 @@ const state = {
   stageState: { brief: "idle", cuopt: "idle", vision: "idle", aiq: "idle" },
   activeTweens: new Map(),
   typewriterTimer: null,
-  progressFillTimer: null,
   runStartedAt: null,
   totalRunMs: 0,
   baselineScore: 41,
@@ -38,6 +39,13 @@ const state = {
   planSections: null,
   aiqJobId: null,
   hasInitializedVisionTypewriter: false
+};
+
+const STAGE_LABELS = {
+  brief: "Demand brief",
+  cuopt: "cuOpt solve",
+  vision: "Vision insights",
+  aiq: "AIQ plan"
 };
 
 const els = {};
@@ -155,7 +163,7 @@ async function loadSandboxStatus() {
 
 function collectEls() {
   els.body = document.body;
-  els.harnessName = document.querySelector("#harness-name");
+  els.cockpit = document.querySelector("main.cockpit");
   els.harnessToggle = document.querySelector("#harness-toggle");
   els.runStatus = document.querySelector("#run-status");
   els.runButton = document.querySelector("#run-demo");
@@ -183,14 +191,15 @@ function collectEls() {
   els.researchDepth = document.querySelector("#research-depth");
   els.planTabs = document.querySelector("#plan-tabs");
   els.planBody = document.querySelector("#plan-body");
-  els.progressRail = document.querySelector(".workspace-progress-rail");
-  els.progressFill = document.querySelector("#progress-rail-fill");
-  els.runCompleteBar = document.querySelector("#run-complete-bar");
-  els.runCompleteEyebrow = document.querySelector("#run-complete-eyebrow");
-  els.runCompleteSummary = document.querySelector("#run-complete-summary");
-  els.ctaReview = document.querySelector("#cta-review");
-  els.ctaRerun = document.querySelector("#cta-rerun");
 
+  els.stagePills = Array.from(document.querySelectorAll(".stage-pill[data-stage]"));
+  els.railResume = document.querySelector("#rail-resume");
+
+  els.promptZone = document.querySelector("#prompt-zone");
+  els.promptSummary = document.querySelector("#prompt-summary");
+  els.promptSummaryText = document.querySelector("#prompt-summary-text");
+  els.promptSummaryAttached = document.querySelector("#prompt-summary-attached");
+  els.promptEditButton = document.querySelector("#prompt-edit-button");
   els.promptInput = document.querySelector("#prompt-input");
   els.promptAttached = document.querySelector("#prompt-attached");
   els.promptAttachedName = document.querySelector("#prompt-attached-name");
@@ -225,19 +234,17 @@ function wireEvents() {
     });
   });
 
-  document.querySelectorAll("[data-stage]").forEach((button) => {
+  // Stage rail — click navigation (with peek-mode during run)
+  els.stagePills.forEach((button) => {
     button.addEventListener("click", () => {
       const stage = button.dataset.stage;
-      if (state.running) {
-        highlightStagePanel(stage);
-        return;
-      }
-      state.activeStage = stage;
-      renderStages();
-      renderSkillStack();
-      highlightStagePanel(stage);
+      navigateToStage(stage, { source: "click" });
     });
+    button.addEventListener("keydown", (e) => handleStageRailKey(e, button));
   });
+
+  // Resume-follow pill (only visible during peek mode mid-run)
+  els.railResume.addEventListener("click", () => resumeAutoFollow());
 
   document.querySelectorAll("[data-plan]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -258,22 +265,6 @@ function wireEvents() {
   });
 
   els.resetButton.addEventListener("click", () => { resetRun(); });
-
-  els.ctaRerun.addEventListener("click", () => {
-    resetRun().then(() => requestAnimationFrame(() => startRun()));
-  });
-
-  els.ctaReview.addEventListener("click", () => {
-    if (state.planTextAccumulator) {
-      openPlanModal();
-    } else {
-      const plan = document.querySelector(".plan-panel");
-      if (plan && typeof plan.scrollIntoView === "function") {
-        plan.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      triggerTabWave();
-    }
-  });
 
   els.planExpand.addEventListener("click", () => {
     if (els.planExpand.disabled) return;
@@ -305,6 +296,14 @@ function wireEvents() {
     }
   });
 
+  els.promptEditButton.addEventListener("click", () => {
+    setPromptView("editable");
+    navigateToStage("brief", { source: "click" });
+    requestAnimationFrame(() => {
+      try { els.promptInput.focus({ preventScroll: false }); } catch (_) {}
+    });
+  });
+
   // Sandbox chip + policy drawer
   els.sandboxChip.addEventListener("click", () => openPolicyDrawer());
   els.policyDrawerClose.addEventListener("click", () => closePolicyDrawer());
@@ -314,6 +313,34 @@ function wireEvents() {
     if (state.planModalOpen) closePlanModal();
     else if (state.policyDrawerOpen) closePolicyDrawer();
   });
+}
+
+function handleStageRailKey(e, currentPill) {
+  const idx = els.stagePills.indexOf(currentPill);
+  if (idx < 0) return;
+  let nextIdx = null;
+  switch (e.key) {
+    case "ArrowDown":
+    case "ArrowRight":
+      nextIdx = (idx + 1) % els.stagePills.length;
+      break;
+    case "ArrowUp":
+    case "ArrowLeft":
+      nextIdx = (idx - 1 + els.stagePills.length) % els.stagePills.length;
+      break;
+    case "Home":
+      nextIdx = 0;
+      break;
+    case "End":
+      nextIdx = els.stagePills.length - 1;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  const nextPill = els.stagePills[nextIdx];
+  navigateToStage(nextPill.dataset.stage, { source: "keyboard" });
+  try { nextPill.focus({ preventScroll: false }); } catch (_) {}
 }
 
 /* ============================================================
@@ -329,6 +356,9 @@ function renderAll() {
   renderPlanTabs();
   renderPlan();
   renderAttachedChip();
+  setActiveCanvas(state.activeStage, { animate: false });
+  setPromptView("editable");
+  updateRunSubstatus();
 }
 
 function applyIdleState() {
@@ -358,17 +388,14 @@ function applyIdleState() {
   els.visionCopy.textContent = "Awaiting Nemotron Omni readout on optimized utilization.";
   els.researchDepth.textContent = "queued";
   els.researchDepth.className = "confidence-chip is-quiet";
-  els.progressRail.classList.remove("is-indeterminate");
-  els.progressFill.style.width = "0%";
-  els.progressFill.style.marginLeft = "";
-  els.runCompleteBar.hidden = true;
-  els.runCompleteBar.classList.remove("is-visible");
   els.metricsEyebrow.textContent = "Baseline today";
 
   state.currentScore = state.baselineScore;
   state.completedStages = new Set();
   state.stageState = { brief: "idle", cuopt: "idle", vision: "idle", aiq: "idle" };
   state.activeStage = "brief";
+  state.autoFollowStage = "brief";
+  state.peekMode = false;
   state.activePlan = "strategy";
   state.completed = false;
   state.runId = null;
@@ -380,6 +407,9 @@ function applyIdleState() {
   state.planModalAutoShown = false;
   if (els.planExpand) els.planExpand.disabled = true;
 
+  setPromptView("editable");
+  setActiveCanvas("brief", { animate: false });
+  hideResumePill();
   renderStages();
   renderSkillStack();
   renderPlan();
@@ -387,10 +417,7 @@ function applyIdleState() {
 }
 
 function renderHarness() {
-  const harness = state.data.harness[state.harness];
-  els.harnessName.textContent = harness.name;
   els.body.dataset.harness = state.harness;
-
   els.harnessToggle.querySelectorAll("[data-harness]").forEach((button) => {
     const isActive = button.dataset.harness === state.harness;
     button.classList.toggle("is-active", isActive);
@@ -399,14 +426,119 @@ function renderHarness() {
 }
 
 function renderStages() {
-  document.querySelectorAll("[data-stage]").forEach((button) => {
+  els.stagePills.forEach((button) => {
     const stage = button.dataset.stage;
     const sub = state.stageState[stage];
-    button.classList.toggle("is-active", stage === state.activeStage);
+    const isActive = stage === state.activeStage;
+    button.classList.toggle("is-active", isActive);
     button.classList.toggle("is-running", sub === "calling" || sub === "streaming");
     button.classList.toggle("is-complete", sub === "done");
     button.classList.toggle("is-skipped", sub === "skipped");
+    button.classList.toggle("is-failed", sub === "failed");
+    button.setAttribute("aria-selected", String(isActive));
+    button.tabIndex = isActive ? 0 : -1;
   });
+}
+
+/* ============================================================
+ * Canvas routing + auto-follow
+ * ============================================================ */
+
+function setActiveCanvas(stage, opts = {}) {
+  if (!stage || !stageOrder.includes(stage)) return;
+  const animate = opts.animate !== false && !REDUCED_MOTION;
+  state.activeStage = stage;
+  els.cockpit.dataset.activeStage = stage;
+  if (animate) {
+    document.querySelectorAll(`[data-stage-canvas]`).forEach((el) => {
+      if (el.matches(`[data-stage-canvas~="${stage}"]`)) {
+        el.classList.remove("is-entering");
+        // force reflow so the animation restarts
+        void el.offsetWidth;
+        el.classList.add("is-entering");
+        setTimeout(() => el.classList.remove("is-entering"), 260);
+      }
+    });
+  }
+  renderStages();
+  highlightStagePanel(stage);
+}
+
+function navigateToStage(stage, opts = {}) {
+  if (!stage || !stageOrder.includes(stage)) return;
+  if (state.running && stage !== state.autoFollowStage) {
+    state.peekMode = true;
+    showResumePill();
+  } else if (stage === state.autoFollowStage) {
+    state.peekMode = false;
+    hideResumePill();
+  }
+  setActiveCanvas(stage);
+}
+
+function autoAdvance(stage) {
+  if (!stage || !stageOrder.includes(stage)) return;
+  state.autoFollowStage = stage;
+  if (!state.peekMode) {
+    setActiveCanvas(stage);
+  } else {
+    // In peek mode, just update the rail visuals; canvas stays on the user's pick.
+    renderStages();
+  }
+  updateRunSubstatus();
+}
+
+function resumeAutoFollow() {
+  state.peekMode = false;
+  hideResumePill();
+  setActiveCanvas(state.autoFollowStage);
+}
+
+function showResumePill() {
+  els.railResume.hidden = false;
+  const stageLabel = STAGE_LABELS[state.autoFollowStage] || state.autoFollowStage;
+  const span = els.railResume.querySelector("span:last-child");
+  if (span) span.textContent = `Resume follow · ${stageLabel}`;
+}
+
+function hideResumePill() {
+  els.railResume.hidden = true;
+}
+
+function updateRunSubstatus() {
+  if (state.completed) return; // finishRun handles its own substatus
+  if (!state.running) {
+    els.runStatus.textContent = "Ready";
+    return;
+  }
+  const stage = state.autoFollowStage || "brief";
+  const i = stageOrder.indexOf(stage);
+  const idx = i >= 0 ? String(i + 1).padStart(2, "0") : "01";
+  const labels = { brief: "Demand brief", cuopt: "cuOpt solve", vision: "Vision insights", aiq: "AIQ plan" };
+  els.runStatus.textContent = `Stage ${idx} · ${labels[stage] || stage}`;
+}
+
+/* ============================================================
+ * Prompt view toggle (editable vs summary)
+ * ============================================================ */
+
+function setPromptView(mode) {
+  // mode: "editable" | "summary"
+  if (mode === "summary") {
+    const text = (els.promptInput.value || "").trim();
+    els.promptSummaryText.textContent = truncate(text, 360) || "(no brief submitted)";
+    if (state.attachedImageState !== "none" && state.attachedImageLabel) {
+      els.promptSummaryAttached.textContent = state.attachedImageLabel;
+      els.promptSummaryAttached.hidden = false;
+    } else {
+      els.promptSummaryAttached.hidden = true;
+    }
+    els.promptZone.hidden = true;
+    els.promptSummary.hidden = false;
+  } else {
+    els.promptZone.hidden = false;
+    els.promptSummary.hidden = true;
+  }
 }
 
 function renderSkillStack() {
@@ -675,11 +807,11 @@ async function startRun() {
   clearPromptError();
 
   cancelAllTweens();
-  stopProgressRail();
   applyRunIdleSlate();
 
   state.running = true;
   state.completed = false;
+  state.peekMode = false;
   state.runStartedAt = performance.now();
 
   els.body.classList.add("is-running");
@@ -688,13 +820,17 @@ async function startRun() {
   els.runButton.classList.remove("is-rerun");
   els.runButton.classList.add("is-running");
   els.runLabel.textContent = "Running";
-  els.runStatus.textContent = "Starting…";
+  els.runStatus.textContent = "Submitting…";
   els.consoleDot.classList.add("is-running");
   els.harnessToggle.setAttribute("aria-disabled", "true");
-  els.runCompleteBar.hidden = true;
-  els.runCompleteBar.classList.remove("is-visible");
+  hideResumePill();
 
-  startIndeterminateProgressRail();
+  // Brief is "submitted" the moment Run is clicked. Collapse the prompt
+  // into a read-only summary and auto-advance the canvas to Stage 2.
+  setPromptView("summary");
+  setStageSubstate("brief", "done");
+  autoAdvance("cuopt");
+
   state.abortController = new AbortController();
 
   let response;
@@ -744,6 +880,7 @@ function applyRunIdleSlate() {
   closePlanModal(true);
   state.stageState = { brief: "idle", cuopt: "idle", vision: "idle", aiq: "idle" };
   state.completedStages = new Set();
+  state.autoFollowStage = "brief";
   state.currentScore = state.baselineScore;
   els.routeScoreValue.textContent = String(state.baselineScore);
   els.routeScoreLabel.textContent = state.data.scoreContext.baselineLabel;
@@ -1115,14 +1252,18 @@ function formatDuration(ms) {
 function setStageSubstate(stage, substate) {
   state.stageState[stage] = substate;
   if (substate === "calling" || substate === "streaming") {
-    state.activeStage = stage;
+    autoAdvance(stage);
   }
   if (substate === "done") {
     state.completedStages.add(stage);
   }
+  if (substate === "failed") {
+    // stays where it is; canvas doesn't auto-advance past a failure
+  }
   renderStages();
   renderSkillStack();
   renderPlanTabs();
+  updateRunSubstatus();
 }
 
 function setStageSubstateSkipped(stage) {
@@ -1143,7 +1284,8 @@ function triggerHandoffPulse(nextStage) {
 
 function highlightStagePanel(stage) {
   let panel = null;
-  if (stage === "brief" || stage === "cuopt") panel = document.querySelector(".route-panel");
+  if (stage === "brief") panel = document.querySelector(".prompt-panel");
+  else if (stage === "cuopt") panel = document.querySelector(".metric-panel");
   else if (stage === "vision") panel = document.querySelector(".chart-panel");
   else if (stage === "aiq") panel = document.querySelector(".plan-panel");
   if (!panel) return;
@@ -1266,27 +1408,6 @@ function addConsoleEntry(stage, message) {
 }
 
 /* ============================================================
- * Progress rail
- * ============================================================ */
-
-function startIndeterminateProgressRail() {
-  els.progressRail.classList.add("is-indeterminate");
-  els.progressFill.style.width = "";
-}
-
-function stopProgressRail() {
-  if (state.progressFillTimer) {
-    window.clearInterval(state.progressFillTimer);
-    state.progressFillTimer = null;
-  }
-}
-
-function stopIndeterminateRail() {
-  els.progressRail.classList.remove("is-indeterminate");
-  els.progressFill.style.marginLeft = "";
-}
-
-/* ============================================================
  * Closing / failure / cancellation
  * ============================================================ */
 
@@ -1319,19 +1440,18 @@ function finishRun(data) {
   els.runLabel.textContent = "Re-run";
   els.runStatus.textContent = `Complete · ${elapsedSec}s`;
   els.harnessToggle.removeAttribute("aria-disabled");
-  stopIndeterminateRail();
-  els.progressFill.style.width = "100%";
 
   if (state.currentScore > state.baselineScore) {
     els.routeScoreDelta.hidden = false;
     els.routeScoreDelta.textContent = "+" + (state.currentScore - state.baselineScore);
   }
 
-  els.runCompleteEyebrow.textContent = `${state.data.closing.eyebrow} · ${elapsedSec}s`;
-  els.ctaReview.textContent = state.data.closing.ctaPrimary;
-  els.ctaRerun.textContent = state.data.closing.ctaSecondary;
-  els.runCompleteBar.hidden = false;
-  requestAnimationFrame(() => els.runCompleteBar.classList.add("is-visible"));
+  // Land canvas on Stage 4 (AIQ plan) — even if the user was peeking elsewhere,
+  // the run-completion event reorients them to the synthesized output.
+  state.autoFollowStage = "aiq";
+  state.peekMode = false;
+  hideResumePill();
+  setActiveCanvas("aiq");
 
   // Re-render the plan body in case typewriter was mid-stream
   if (state.planTextAccumulator) renderPlanLive();
@@ -1357,12 +1477,18 @@ function failRun(data) {
   els.body.classList.remove("is-running");
   els.runButton.disabled = false;
   els.runButton.classList.remove("is-running");
-  els.runLabel.textContent = "Run";
+  els.runLabel.textContent = "Retry";
   els.runStatus.textContent = "Failed";
   els.consoleDot.classList.remove("is-running");
   els.harnessToggle.removeAttribute("aria-disabled");
-  stopProgressRail();
-  stopIndeterminateRail();
+  // Mark the currently-active agent stage as failed so the rail shows the "!" indicator.
+  const stage = state.autoFollowStage;
+  if (stage && stage !== "brief" && state.stageState[stage] !== "done") {
+    state.stageState[stage] = "failed";
+    renderStages();
+    renderSkillStack();
+  }
+  hideResumePill();
   const message = (data && (data.error || data.stderr)) || "run failed";
   showToast("error", "Run failed — " + truncate(message, 240));
   addConsoleEntry("general", "Run failed: " + truncate(message, 400));
@@ -1379,8 +1505,7 @@ function finishRunCancelled() {
   els.runStatus.textContent = "Cancelled";
   els.consoleDot.classList.remove("is-running");
   els.harnessToggle.removeAttribute("aria-disabled");
-  stopProgressRail();
-  stopIndeterminateRail();
+  hideResumePill();
   addConsoleEntry("general", "Run cancelled.");
 }
 
@@ -1410,8 +1535,6 @@ async function resetRun() {
     } catch (_) {}
   }
   cancelAllTweens();
-  stopProgressRail();
-  stopIndeterminateRail();
   if (state.typewriterTimer) {
     window.clearInterval(state.typewriterTimer);
     state.typewriterTimer = null;

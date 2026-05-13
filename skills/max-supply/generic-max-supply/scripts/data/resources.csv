@@ -1,0 +1,21 @@
+resource_id,name,period,available_hours
+RES1,Machine Line A,1,40
+RES1,Machine Line A,2,40
+RES1,Machine Line A,3,40
+RES1,Machine Line A,4,40
+RES1,Machine Line A,5,40
+RES1,Machine Line A,6,40
+RES1,Machine Line A,7,40
+RES1,Machine Line A,8,40
+RES1,Machine Line A,9,40
+RES1,Machine Line A,10,40
+RES2,Machine Line B,1,60
+RES2,Machine Line B,2,60
+RES2,Machine Line B,3,60
+RES2,Machine Line B,4,60
+RES2,Machine Line B,5,30
+RES2,Machine Line B,6,60
+RES2,Machine Line B,7,60
+RES2,Machine Line B,8,60
+RES2,Machine Line B,9,60
+RES2,Machine Line B,10,60

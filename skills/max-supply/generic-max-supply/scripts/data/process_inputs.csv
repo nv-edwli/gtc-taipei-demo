@@ -1,0 +1,8 @@
+process_id,item_id,quantity
+PROC1,RM1,2.2
+PROC1,RM2,1.5
+PROC2,RM3,3.0
+PROC3,SA1,2.0
+PROC3,SA2,3.0
+PROC4,SA1,1.0
+PROC4,RM2,1.0

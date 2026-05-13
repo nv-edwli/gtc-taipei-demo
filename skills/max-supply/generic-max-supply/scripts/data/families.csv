@@ -1,0 +1,5 @@
+family_id,name,is_constrained
+FAM_FG,Finished Goods,true
+FAM_SA,Subassemblies,true
+FAM_RM1,Raw Materials Group 1,true
+FAM_RM2,Raw Materials Group 2,false

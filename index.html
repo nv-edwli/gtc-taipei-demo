@@ -43,259 +43,270 @@
               <path d="M4 12a8 8 0 1 0 2.35-5.66"></path>
               <path d="M4 5v5h5"></path>
             </svg>
-            <span class="run-label">Run</span>
+            <span class="run-content">
+              <span class="run-label">Run</span>
+              <span class="run-substatus" id="run-status">Ready</span>
+            </span>
           </button>
         </div>
       </header>
 
-      <main>
-        <section class="prompt-zone" aria-label="Research brief">
-          <div class="prompt-zone-head">
-            <div>
-              <span class="eyebrow">Research brief</span>
-              <h2 class="prompt-zone-title">Ask the agent</h2>
-            </div>
-            <div class="prompt-attached" id="prompt-attached" data-state="sample">
-              <span class="prompt-attached-pin" aria-hidden="true"></span>
-              <span class="prompt-attached-name" id="prompt-attached-name">sample-capacity.png</span>
-              <button class="prompt-attached-clear" type="button" id="prompt-attached-clear" aria-label="Detach image">✕</button>
-            </div>
+      <main class="cockpit" data-active-stage="brief">
+        <nav class="cockpit-rail" aria-label="Demo stages">
+          <div class="rail-stages" role="tablist" aria-label="Demo stages">
+            <button class="stage-pill is-active" type="button" data-stage="brief" role="tab" id="stage-tab-brief" aria-selected="true" aria-controls="canvas-brief" tabindex="0">
+              <span class="stage-index">01</span>
+              <span class="stage-name">
+                <span class="stage-name-title">Demand brief</span>
+                <span class="stage-name-detail">Scenario &amp; baseline</span>
+              </span>
+            </button>
+            <button class="stage-pill" type="button" data-stage="cuopt" role="tab" id="stage-tab-cuopt" aria-selected="false" aria-controls="canvas-cuopt" tabindex="-1">
+              <span class="stage-index">02</span>
+              <span class="stage-name">
+                <span class="stage-name-title">cuOpt solve</span>
+                <span class="stage-name-detail">Optimized network</span>
+              </span>
+            </button>
+            <button class="stage-pill" type="button" data-stage="vision" role="tab" id="stage-tab-vision" aria-selected="false" aria-controls="canvas-vision" tabindex="-1">
+              <span class="stage-index">03</span>
+              <span class="stage-name">
+                <span class="stage-name-title">Vision insights</span>
+                <span class="stage-name-detail">Nemotron Omni</span>
+              </span>
+            </button>
+            <button class="stage-pill" type="button" data-stage="aiq" role="tab" id="stage-tab-aiq" aria-selected="false" aria-controls="canvas-aiq" tabindex="-1">
+              <span class="stage-index">04</span>
+              <span class="stage-name">
+                <span class="stage-name-title">AIQ plan</span>
+                <span class="stage-name-detail">Business synthesis</span>
+              </span>
+            </button>
           </div>
-          <textarea id="prompt-input" class="prompt-input" rows="4" spellcheck="false" placeholder="Describe the research brief — the agent will decide which skills to call."></textarea>
-          <div class="prompt-footer">
-            <div class="prompt-actions">
-              <label class="prompt-attach-button" for="prompt-attach-input">
-                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-                Attach image
-              </label>
-              <input type="file" id="prompt-attach-input" accept="image/png,image/jpeg,image/webp" hidden>
-              <button class="prompt-reset-sample" type="button" id="prompt-reset-sample">Reset to sample image</button>
-            </div>
-            <p class="prompt-error" id="prompt-error" role="alert" hidden></p>
-          </div>
-        </section>
 
-        <section class="command-strip" aria-label="Demo command state">
-          <div>
-            <span class="eyebrow">Active harness</span>
-            <strong id="harness-name">Codex</strong>
-          </div>
-          <div>
-            <span class="eyebrow">Skill chain</span>
-            <strong>cuOpt · Vision Insights · AIQ Research</strong>
-          </div>
-          <div>
-            <span class="eyebrow">Scenario</span>
-            <strong>Advanced manufacturing routes through Taiwan</strong>
-          </div>
-          <div>
-            <span class="eyebrow">Run status</span>
-            <strong id="run-status">Ready</strong>
-          </div>
-          <div class="command-strip-sandbox">
-            <span class="eyebrow">Execution surface</span>
+          <button class="rail-resume" type="button" id="rail-resume" hidden>
+            <span class="rail-resume-dot" aria-hidden="true"></span>
+            <span>Resume follow</span>
+          </button>
+
+          <div class="rail-footer">
+            <div class="rail-meta">
+              <span class="eyebrow">Scenario</span>
+              <strong class="rail-meta-title">Advanced manufacturing · Taiwan</strong>
+              <span class="rail-meta-detail" id="scenario-load">— weekly lots</span>
+            </div>
             <button class="sandbox-chip is-unknown" type="button" id="sandbox-chip" aria-label="View openshell sandbox policy" aria-haspopup="dialog">
               <span class="sandbox-chip-pip" aria-hidden="true"></span>
               <span class="sandbox-chip-text" id="sandbox-chip-text">openshell · my-assistant</span>
               <span class="sandbox-chip-info" aria-hidden="true">ⓘ</span>
             </button>
           </div>
-        </section>
+        </nav>
 
-        <div class="workspace-progress-rail" aria-hidden="true">
-          <div class="fill" id="progress-rail-fill"></div>
-        </div>
-
-        <section class="workspace-grid">
-          <div class="stage-column">
-            <nav class="stage-rail" aria-label="Demo stages">
-              <button class="stage-pill is-active" type="button" data-stage="brief">
-                <span class="stage-index">01</span>
-                <span>Demand brief</span>
-              </button>
-              <button class="stage-pill" type="button" data-stage="cuopt">
-                <span class="stage-index">02</span>
-                <span>cuOpt solve</span>
-              </button>
-              <button class="stage-pill" type="button" data-stage="vision">
-                <span class="stage-index">03</span>
-                <span>Visual insights</span>
-              </button>
-              <button class="stage-pill" type="button" data-stage="aiq">
-                <span class="stage-index">04</span>
-                <span>AIQ plan</span>
-              </button>
-            </nav>
-
-            <article class="panel route-panel" aria-labelledby="route-title">
+        <section class="cockpit-canvas" id="cockpit-canvas">
+          <!-- Stage 1: Demand brief -->
+          <div class="stage-canvas" id="canvas-brief" data-stage-canvas="brief" role="tabpanel" aria-labelledby="stage-tab-brief">
+            <article class="panel prompt-panel" aria-labelledby="prompt-title">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Optimized network</span>
-                  <h1 id="route-title">Taiwan manufacturing supply chain</h1>
+                  <span class="eyebrow">Research brief</span>
+                  <h2 id="prompt-title">Ask the agent</h2>
                 </div>
-                <div class="route-score" id="route-score">
-                  <span class="route-score-value" id="route-score-value">41</span>
-                  <small class="route-score-label" id="route-score-label">baseline</small>
-                  <span class="route-score-delta" id="route-score-delta" hidden>+50</span>
+                <div class="prompt-attached" id="prompt-attached" data-state="sample">
+                  <span class="prompt-attached-pin" aria-hidden="true"></span>
+                  <span class="prompt-attached-name" id="prompt-attached-name">sample-capacity.png</span>
+                  <button class="prompt-attached-clear" type="button" id="prompt-attached-clear" aria-label="Detach image">✕</button>
                 </div>
               </div>
-
-              <div class="map-wrap">
-                <div class="map-overlay-status is-baseline" id="map-status" aria-live="polite">
-                  <span class="status-dot-mini" aria-hidden="true"></span>
-                  <span id="map-status-text">Baseline routing · stressed</span>
+              <div class="prompt-zone" id="prompt-zone">
+                <textarea id="prompt-input" class="prompt-input" rows="4" spellcheck="false" placeholder="Describe the research brief — the agent will decide which skills to call."></textarea>
+                <div class="prompt-footer">
+                  <div class="prompt-actions">
+                    <label class="prompt-attach-button" for="prompt-attach-input">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                      Attach image
+                    </label>
+                    <input type="file" id="prompt-attach-input" accept="image/png,image/jpeg,image/webp" hidden>
+                    <button class="prompt-reset-sample" type="button" id="prompt-reset-sample">Reset to sample image</button>
+                  </div>
+                  <p class="prompt-error" id="prompt-error" role="alert" hidden></p>
                 </div>
-
-                <svg class="taiwan-map" viewBox="0 0 800 620" role="img" aria-labelledby="map-title map-desc">
-                  <title id="map-title">Taiwan manufacturing and logistics route map</title>
-                  <desc id="map-desc">A stylized map showing manufacturing, assembly, port, and airport nodes across Taiwan with optimized routes.</desc>
-                  <defs>
-                    <linearGradient id="routeGradient" x1="0" x2="1" y1="0" y2="1">
-                      <stop offset="0%" stop-color="#76b900"></stop>
-                      <stop offset="55%" stop-color="#00c3ff"></stop>
-                      <stop offset="100%" stop-color="#f0b429"></stop>
-                    </linearGradient>
-                    <filter id="routeGlow" x="-30%" y="-30%" width="160%" height="160%">
-                      <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
-                      <feMerge>
-                        <feMergeNode in="blur"></feMergeNode>
-                        <feMergeNode in="SourceGraphic"></feMergeNode>
-                      </feMerge>
-                    </filter>
-                  </defs>
-
-                  <path class="island-shape" d="M472 43c46 45 70 117 63 190-8 81-46 154-84 218-36 61-77 105-127 120-45 14-84-6-104-44-19-36-21-87-10-145 11-62 36-127 67-189 32-64 69-121 112-148 30-19 59-22 83-2z"></path>
-                  <path class="terrain-line" d="M461 78c8 82-11 151-43 212-31 60-76 112-112 167"></path>
-                  <path class="terrain-line second" d="M510 173c-46 35-77 76-98 126-23 54-34 115-67 166"></path>
-
-                  <path class="baseline-route" id="baseline-route" d="M417 103 C520 166, 477 295, 378 343 S292 487, 340 538"></path>
-                  <path class="active-route" id="active-route" d="M417 103 C455 155, 436 231, 386 286 C352 322, 315 364, 305 423 C296 474, 317 512, 340 538"></path>
-                  <path class="feeder-route" id="feeder-route" d="M313 425 C232 403, 202 346, 239 281 C282 205, 360 151, 417 103"></path>
-                  <path class="port-route" id="port-route" d="M386 286 C467 313, 505 380, 459 446 C429 490, 379 517, 340 538"></path>
-
-                  <g class="map-node" data-node="Taipei" transform="translate(417 103)">
-                    <circle r="14"></circle>
-                    <text x="22" y="-12">Taipei</text>
-                    <text class="node-meta" x="22" y="8">GTC command</text>
-                  </g>
-                  <g class="map-node" data-node="Hsinchu" transform="translate(386 286)">
-                    <circle r="14"></circle>
-                    <text x="22" y="-12">Hsinchu</text>
-                    <text class="node-meta" x="22" y="8">wafer supply</text>
-                  </g>
-                  <g class="map-node" data-node="Taichung" transform="translate(305 423)">
-                    <circle r="14"></circle>
-                    <text x="-110" y="-12">Taichung</text>
-                    <text class="node-meta" x="-110" y="8">precision parts</text>
-                  </g>
-                  <g class="map-node" data-node="Tainan" transform="translate(340 538)">
-                    <circle r="14"></circle>
-                    <text x="22" y="-12">Tainan</text>
-                    <text class="node-meta" x="22" y="8">advanced packaging</text>
-                  </g>
-                  <g class="map-node muted" data-node="Taoyuan" transform="translate(239 281)">
-                    <circle r="11"></circle>
-                    <text x="-96" y="-10">Taoyuan</text>
-                    <text class="node-meta" x="-96" y="9">airport</text>
-                  </g>
-                  <g class="map-node muted" data-node="Kaohsiung" transform="translate(459 446)">
-                    <circle r="11"></circle>
-                    <text x="22" y="-10">Kaohsiung</text>
-                    <text class="node-meta" x="22" y="9">port</text>
-                  </g>
-                </svg>
-
-                <div class="map-overlay">
-                  <span class="eyebrow">Scenario load</span>
-                  <strong id="scenario-load">— weekly lots</strong>
+              </div>
+              <div class="prompt-summary" id="prompt-summary" hidden>
+                <p class="prompt-summary-text" id="prompt-summary-text"></p>
+                <div class="prompt-summary-meta">
+                  <span class="prompt-summary-attached" id="prompt-summary-attached"></span>
+                  <button class="ghost-action prompt-edit-button" type="button" id="prompt-edit-button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg>
+                    Edit brief
+                  </button>
                 </div>
               </div>
             </article>
           </div>
 
-          <aside class="right-column">
-            <section class="panel compact-panel" aria-labelledby="skill-stack-title">
+          <!-- Route panel (map + score) — shared across brief & cuopt stages.
+               Positioned between brief and cuopt so it sits *below* the prompt
+               in brief mode and *above* the metric bars in cuopt mode. -->
+          <article class="panel route-panel" data-stage-canvas="brief cuopt" aria-labelledby="route-title">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Optimized network</span>
+                <h1 id="route-title">Taiwan manufacturing supply chain</h1>
+              </div>
+              <div class="route-score" id="route-score">
+                <span class="route-score-value" id="route-score-value">41</span>
+                <small class="route-score-label" id="route-score-label">baseline</small>
+                <span class="route-score-delta" id="route-score-delta" hidden>+50</span>
+              </div>
+            </div>
+
+            <div class="map-wrap">
+              <div class="map-overlay-status is-baseline" id="map-status" aria-live="polite">
+                <span class="status-dot-mini" aria-hidden="true"></span>
+                <span id="map-status-text">Baseline routing · stressed</span>
+              </div>
+
+              <svg class="taiwan-map" viewBox="0 0 800 620" role="img" aria-labelledby="map-title map-desc">
+                <title id="map-title">Taiwan manufacturing and logistics route map</title>
+                <desc id="map-desc">A stylized map showing manufacturing, assembly, port, and airport nodes across Taiwan with optimized routes.</desc>
+                <defs>
+                  <linearGradient id="routeGradient" x1="0" x2="1" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#76b900"></stop>
+                    <stop offset="55%" stop-color="#00c3ff"></stop>
+                    <stop offset="100%" stop-color="#f0b429"></stop>
+                  </linearGradient>
+                  <filter id="routeGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                    <feMerge>
+                      <feMergeNode in="blur"></feMergeNode>
+                      <feMergeNode in="SourceGraphic"></feMergeNode>
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                <path class="island-shape" d="M472 43c46 45 70 117 63 190-8 81-46 154-84 218-36 61-77 105-127 120-45 14-84-6-104-44-19-36-21-87-10-145 11-62 36-127 67-189 32-64 69-121 112-148 30-19 59-22 83-2z"></path>
+                <path class="terrain-line" d="M461 78c8 82-11 151-43 212-31 60-76 112-112 167"></path>
+                <path class="terrain-line second" d="M510 173c-46 35-77 76-98 126-23 54-34 115-67 166"></path>
+
+                <path class="baseline-route" id="baseline-route" d="M417 103 C520 166, 477 295, 378 343 S292 487, 340 538"></path>
+                <path class="active-route" id="active-route" d="M417 103 C455 155, 436 231, 386 286 C352 322, 315 364, 305 423 C296 474, 317 512, 340 538"></path>
+                <path class="feeder-route" id="feeder-route" d="M313 425 C232 403, 202 346, 239 281 C282 205, 360 151, 417 103"></path>
+                <path class="port-route" id="port-route" d="M386 286 C467 313, 505 380, 459 446 C429 490, 379 517, 340 538"></path>
+
+                <g class="map-node" data-node="Taipei" transform="translate(417 103)">
+                  <circle r="14"></circle>
+                  <text x="22" y="-12">Taipei</text>
+                  <text class="node-meta" x="22" y="8">GTC command</text>
+                </g>
+                <g class="map-node" data-node="Hsinchu" transform="translate(386 286)">
+                  <circle r="14"></circle>
+                  <text x="22" y="-12">Hsinchu</text>
+                  <text class="node-meta" x="22" y="8">wafer supply</text>
+                </g>
+                <g class="map-node" data-node="Taichung" transform="translate(305 423)">
+                  <circle r="14"></circle>
+                  <text x="-110" y="-12">Taichung</text>
+                  <text class="node-meta" x="-110" y="8">precision parts</text>
+                </g>
+                <g class="map-node" data-node="Tainan" transform="translate(340 538)">
+                  <circle r="14"></circle>
+                  <text x="22" y="-12">Tainan</text>
+                  <text class="node-meta" x="22" y="8">advanced packaging</text>
+                </g>
+                <g class="map-node muted" data-node="Taoyuan" transform="translate(239 281)">
+                  <circle r="11"></circle>
+                  <text x="-96" y="-10">Taoyuan</text>
+                  <text class="node-meta" x="-96" y="9">airport</text>
+                </g>
+                <g class="map-node muted" data-node="Kaohsiung" transform="translate(459 446)">
+                  <circle r="11"></circle>
+                  <text x="22" y="-10">Kaohsiung</text>
+                  <text class="node-meta" x="22" y="9">port</text>
+                </g>
+              </svg>
+            </div>
+          </article>
+
+          <!-- Stage 2: cuOpt solve -->
+          <div class="stage-canvas" id="canvas-cuopt" data-stage-canvas="cuopt" role="tabpanel" aria-labelledby="stage-tab-cuopt" hidden>
+            <article class="panel metric-panel" aria-labelledby="metrics-title">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Packaged agent skills</span>
-                  <h2 id="skill-stack-title">CUDA-X orchestration</h2>
+                  <span class="eyebrow" id="metrics-eyebrow">Baseline today</span>
+                  <h2 id="metrics-title">Route economics</h2>
                 </div>
               </div>
-              <div class="skill-stack" id="skill-stack"></div>
-            </section>
+              <div class="metric-bars" id="metric-bars"></div>
+            </article>
+          </div>
 
-            <section class="panel compact-panel" aria-labelledby="console-title">
+          <!-- Stage 3: Vision insights -->
+          <div class="stage-canvas" id="canvas-vision" data-stage-canvas="vision" role="tabpanel" aria-labelledby="stage-tab-vision" hidden>
+            <article class="panel chart-panel" aria-labelledby="chart-title">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Agent progress</span>
-                  <h2 id="console-title">Live run trace</h2>
+                  <span class="eyebrow">Nemotron Omni readout</span>
+                  <h2 id="chart-title">Visual insight summary</h2>
                 </div>
-                <span class="status-dot" id="console-dot" aria-hidden="true"></span>
+                <span class="confidence-chip is-quiet" id="vision-confidence">standby</span>
               </div>
-              <div class="run-console-wrap">
-                <ol class="run-console" id="run-console" aria-live="polite"></ol>
-              </div>
-            </section>
-          </aside>
-        </section>
-
-        <section class="insight-grid">
-          <article class="panel metric-panel" aria-labelledby="metrics-title">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow" id="metrics-eyebrow">Baseline today</span>
-                <h2 id="metrics-title">Route economics</h2>
-              </div>
-            </div>
-            <div class="metric-bars" id="metric-bars"></div>
-          </article>
-
-          <article class="panel chart-panel" aria-labelledby="chart-title">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow">Nemotron Omni readout</span>
-                <h2 id="chart-title">Visual insight summary</h2>
-              </div>
-              <span class="confidence-chip" id="vision-confidence">standby</span>
-            </div>
-            <div class="mini-chart" id="mini-chart" aria-label="Capacity utilization chart"></div>
-            <p class="insight-copy" id="vision-copy">Awaiting Nemotron Omni readout on optimized utilization.</p>
-          </article>
-
-          <article class="panel plan-panel" aria-labelledby="plan-title">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow">AIQ research output</span>
-                <h2 id="plan-title">Business plan synthesis</h2>
-              </div>
-              <div class="plan-heading-actions">
-                <span class="confidence-chip" id="research-depth">queued</span>
-                <button class="plan-expand" type="button" id="plan-expand" disabled aria-haspopup="dialog">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v6h6"></path><path d="M20 10V4h-6"></path><path d="M4 20l7-7"></path><path d="M20 4l-7 7"></path></svg>
-                  Expand
-                </button>
-              </div>
-            </div>
-            <div class="plan-tabs" role="tablist" aria-label="Business plan sections" id="plan-tabs">
-              <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true" aria-disabled="true">Strategy</button>
-              <button class="plan-tab" type="button" data-plan="market" role="tab" aria-selected="false" aria-disabled="true">Market</button>
-              <button class="plan-tab" type="button" data-plan="risk" role="tab" aria-selected="false" aria-disabled="true">Risk</button>
-              <button class="plan-tab" type="button" data-plan="execution" role="tab" aria-selected="false" aria-disabled="true">Execution</button>
-            </div>
-            <div class="plan-body" id="plan-body" tabindex="0"></div>
-          </article>
-        </section>
-
-        <section class="run-complete-bar" id="run-complete-bar" hidden aria-live="polite">
-          <div class="run-complete-text">
-            <span class="eyebrow" id="run-complete-eyebrow">Run complete</span>
-            <strong id="run-complete-summary">Plan synthesized — review the plan or refine the brief and re-run.</strong>
+              <div class="mini-chart" id="mini-chart" aria-label="Capacity utilization chart"></div>
+              <p class="insight-copy" id="vision-copy">Awaiting Nemotron Omni readout on optimized utilization.</p>
+            </article>
           </div>
-          <div class="run-complete-actions">
-            <button class="ghost-action" type="button" id="cta-review">Review the plan</button>
-            <button class="ghost-action is-primary" type="button" id="cta-rerun">Re-run demo</button>
+
+          <!-- Stage 4: AIQ plan -->
+          <div class="stage-canvas" id="canvas-aiq" data-stage-canvas="aiq" role="tabpanel" aria-labelledby="stage-tab-aiq" hidden>
+            <article class="panel plan-panel" aria-labelledby="plan-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">AIQ research output</span>
+                  <h2 id="plan-title">Business plan synthesis</h2>
+                </div>
+                <div class="plan-heading-actions">
+                  <span class="confidence-chip is-quiet" id="research-depth">queued</span>
+                  <button class="plan-expand" type="button" id="plan-expand" disabled aria-haspopup="dialog">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v6h6"></path><path d="M20 10V4h-6"></path><path d="M4 20l7-7"></path><path d="M20 4l-7 7"></path></svg>
+                    Expand
+                  </button>
+                </div>
+              </div>
+              <div class="plan-tabs" role="tablist" aria-label="Business plan sections" id="plan-tabs">
+                <button class="plan-tab is-active" type="button" data-plan="strategy" role="tab" aria-selected="true" aria-disabled="true">Strategy</button>
+                <button class="plan-tab" type="button" data-plan="market" role="tab" aria-selected="false" aria-disabled="true">Market</button>
+                <button class="plan-tab" type="button" data-plan="risk" role="tab" aria-selected="false" aria-disabled="true">Risk</button>
+                <button class="plan-tab" type="button" data-plan="execution" role="tab" aria-selected="false" aria-disabled="true">Execution</button>
+              </div>
+              <div class="plan-body" id="plan-body" tabindex="0"></div>
+            </article>
           </div>
         </section>
+
+        <aside class="cockpit-progress" aria-label="Agent progress">
+          <section class="panel compact-panel" aria-labelledby="skill-stack-title">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Packaged skills</span>
+                <h2 id="skill-stack-title">CUDA-X orchestration</h2>
+              </div>
+            </div>
+            <div class="skill-stack" id="skill-stack"></div>
+          </section>
+
+          <section class="panel compact-panel run-trace-panel" aria-labelledby="console-title">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">Live trace</span>
+                <h2 id="console-title">Run trace</h2>
+              </div>
+              <span class="status-dot" id="console-dot" aria-hidden="true"></span>
+            </div>
+            <div class="run-console-wrap">
+              <ol class="run-console" id="run-console" aria-live="polite"></ol>
+            </div>
+          </section>
+        </aside>
       </main>
     </div>
 

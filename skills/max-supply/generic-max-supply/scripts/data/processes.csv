@@ -1,0 +1,5 @@
+process_id,name,lead_time,hours_per_unit
+PROC1,Make Subassembly X,1,0.5
+PROC2,Make Subassembly Y (co-prod),1,0.3
+PROC3,Assemble Finished Good Alpha,2,1.0
+PROC4,Assemble Finished Good Beta,1,0.8

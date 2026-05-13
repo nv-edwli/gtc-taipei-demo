@@ -1,0 +1,8 @@
+item_id,name,family_id
+FG1,Finished Good Alpha,FAM_FG
+FG2,Finished Good Beta,FAM_FG
+SA1,Subassembly X,FAM_SA
+SA2,Subassembly Y,FAM_SA
+RM1,Raw Material 1,FAM_RM1
+RM2,Raw Material 2,FAM_RM1
+RM3,Raw Material 3,FAM_RM2
