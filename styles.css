@@ -373,13 +373,26 @@ main.cockpit {
   top: 96px;
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 18px;
   min-width: 0;
 }
 
+/* Subtle hairline between the scenario header card and the stage tabs below. */
 .rail-stages {
+  position: relative;
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.rail-stages::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
 
 /* ---------- Stage pill ---------- */
@@ -401,8 +414,8 @@ main.cockpit {
   grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  min-height: 64px;
-  padding: 10px 12px;
+  min-height: 72px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--muted);
@@ -751,7 +764,7 @@ main.cockpit {
     align-items: stretch;
   }
   main.cockpit[data-active-stage="cuopt"] .cockpit-canvas {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     align-items: stretch;
   }
 }
@@ -1159,16 +1172,24 @@ h2 {
   box-shadow: 0 0 0 1px rgba(118, 185, 0, 0.45), 0 0 18px -4px rgba(118, 185, 0, 0.35);
 }
 
-.skill-chip.is-running::after {
-  /* shimmer overlay */
-  content: "";
+/* Shimmer container. The chip itself stays overflow:visible so the hover
+   tooltip can escape; the shimmer is animated inside this dedicated wrapper
+   which clips with overflow:hidden so the gradient stays bounded by the chip. */
+.skill-chip-glow {
   position: absolute;
   inset: 0;
   border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.skill-chip.is-running .skill-chip-glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: linear-gradient(90deg, transparent 0%, rgba(118, 185, 0, 0.18) 50%, transparent 100%);
   transform: translateX(-100%);
   animation: stage-shimmer 1600ms linear infinite;
-  pointer-events: none;
 }
 
 .skill-chip.is-done {
@@ -1277,8 +1298,8 @@ h2 {
 .run-console {
   display: grid;
   gap: 10px;
-  max-height: min(420px, calc(100vh - 420px));
-  min-height: 260px;
+  max-height: min(640px, calc(100vh - 360px));
+  min-height: 320px;
   margin: 0;
   padding: 0 14px 14px;
   overflow: auto;
@@ -1444,56 +1465,79 @@ body.is-run-complete .plan-panel {
   background: linear-gradient(90deg, var(--nvidia-green), var(--cyan));
 }
 
-/* ---------- Mini chart ---------- */
+/* ---------- Vision Insights body (image | insights) ---------- */
 
-.mini-chart {
+.vision-body {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  align-items: end;
-  gap: 8px;
-  height: 184px;
-  margin: 0 18px;
-  padding: 12px 10px 26px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  padding: 0 18px 18px;
+}
+
+@media (max-width: 1023px) {
+  .vision-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.vision-image-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
-  transition: height 500ms ease, margin 500ms ease, padding 500ms ease, filter 500ms ease;
+  background: rgba(5, 7, 5, 0.55);
+  overflow: hidden;
+  transition: filter 320ms ease;
 }
 
-.mini-chart.is-analyzing {
-  filter: saturate(0.4) brightness(0.96);
+.vision-image-wrap.is-analyzing {
+  filter: saturate(0.5) brightness(0.92);
 }
 
-.chart-bar {
-  position: relative;
-  min-width: 0;
-  height: var(--height, 20%);
-  border-radius: 6px 6px 2px 2px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
-  transition: height 900ms ease, background 700ms ease;
-}
-
-.mini-chart.is-optimized .chart-bar {
-  background: linear-gradient(180deg, var(--cyan), rgba(0, 195, 255, 0.22));
-}
-
-.mini-chart.is-optimized .chart-bar.is-hot {
-  background: linear-gradient(180deg, var(--amber), rgba(240, 180, 41, 0.22));
-}
-
-.chart-bar span {
+.vision-image-wrap.is-analyzing::after {
+  content: "";
   position: absolute;
-  left: 50%;
-  bottom: -22px;
-  transform: translateX(-50%);
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(118, 185, 0, 0.18) 50%, transparent 100%);
+  background-size: 100% 200%;
+  animation: vision-scan 1800ms ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes vision-scan {
+  0%   { background-position: 0 -100%; }
+  100% { background-position: 0 200%; }
+}
+
+#vision-image {
+  display: block;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  object-fit: contain;
+  background: #0c120c;
+}
+
+.vision-image-caption {
+  padding: 6px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .insight-copy {
   min-height: 72px;
-  margin: 18px 18px 18px;
+  margin: 0;
   color: #dfe5d9;
   font-size: 0.94rem;
   line-height: 1.6;
@@ -2409,6 +2453,7 @@ body.is-run-complete .plan-expand:not([disabled]) {
 .run-console li.tool-entry .tool-stage[data-stage="general"]{ color: var(--muted); border-color: rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.04); }
 
 .run-console li.tool-entry .tool-preview {
+  position: relative;
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.74rem;
@@ -2422,6 +2467,20 @@ body.is-run-complete .plan-expand:not([disabled]) {
   overflow-wrap: anywhere;
   max-height: 4em;
   overflow: hidden;
+}
+
+/* Fade-out hint at the bottom of a collapsed preview so the user can tell at
+   a glance that more content sits behind the expand toggle. */
+.run-console li.tool-entry:not(.is-expanded) .tool-preview::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.4em;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  border-radius: 0 0 6px 6px;
 }
 
 .run-console li.tool-entry.is-expanded .tool-preview {

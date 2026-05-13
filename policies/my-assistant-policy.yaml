@@ -390,6 +390,21 @@ network_policies:
       - '10.0.0.0/8'
       - '172.16.0.0/12'
       - '192.168.0.0/16'
+    - host: host.openshell.internal
+      port: 8002
+      protocol: rest
+      enforcement: enforce
+      rules:
+      - allow:
+          method: GET
+          path: /cuopt/**
+      - allow:
+          method: POST
+          path: /cuopt/**
+      allowed_ips:
+      - '10.0.0.0/8'
+      - '172.16.0.0/12'
+      - '192.168.0.0/16'
     binaries:
     - path: /usr/local/bin/openclaw
     - path: /usr/local/bin/node

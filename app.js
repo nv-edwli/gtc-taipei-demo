@@ -192,7 +192,9 @@ function collectEls() {
   els.skillStack = document.querySelector("#skill-stack");
   els.metricBars = document.querySelector("#metric-bars");
   els.metricsEyebrow = document.querySelector("#metrics-eyebrow");
-  els.miniChart = document.querySelector("#mini-chart");
+  els.visionImage = document.querySelector("#vision-image");
+  els.visionImageWrap = document.querySelector(".vision-image-wrap");
+  els.visionImageCaption = document.querySelector("#vision-image-caption");
   els.visionCopy = document.querySelector("#vision-copy");
   els.visionConfidence = document.querySelector("#vision-confidence");
   els.researchDepth = document.querySelector("#research-depth");
@@ -359,7 +361,7 @@ function renderAll() {
   renderStages();
   renderSkillStack();
   renderMetrics("baseline");
-  renderChart("baseline");
+  updateVisionImage();
   renderPlanTabs();
   renderPlan();
   renderAttachedChip();
@@ -612,6 +614,7 @@ function renderSkillStack() {
                data-skill="${escapeHtml(skill.id)}"
                data-tooltip="${escapeHtml(skill.detail)}"
                aria-label="${escapeHtml(aria)}">
+        <span class="skill-chip-glow" aria-hidden="true"></span>
         <span class="skill-chip-icon" aria-hidden="true">${escapeHtml(skill.icon)}</span>
         <span class="skill-chip-name">${escapeHtml(skill.name)}</span>
         <span class="skill-chip-state">${stateLabel}</span>
@@ -653,23 +656,39 @@ function renderMetrics(phase) {
   }).join("");
 }
 
-function renderChart(phase) {
-  const isOptimized = phase === "optimized";
-  const values = isOptimized ? state.data.capacity.optimized : state.data.capacity.baseline;
+function toBrowserImageUrl(hostPath) {
+  if (!hostPath) return null;
+  if (hostPath.startsWith("/tmp/uploads/")) {
+    return "/uploads/" + hostPath.slice("/tmp/uploads/".length);
+  }
+  // Sample image lives at /data/sample-capacity.png in the repo, served as-is
+  // by the static handler. The host-absolute form lands here too.
+  if (hostPath === SAMPLE_IMAGE_PATH || hostPath.endsWith("/data/sample-capacity.png")) {
+    return "/data/sample-capacity.png";
+  }
+  // Already a browser-relative URL (e.g. "/data/sample-capacity.png").
+  if (hostPath.startsWith("/")) return hostPath;
+  return null;
+}
 
-  els.miniChart.classList.toggle("is-baseline", phase === "baseline");
-  els.miniChart.classList.toggle("is-optimized", phase === "optimized");
-  els.miniChart.classList.toggle("is-analyzing", phase === "analyzing");
-
-  els.miniChart.innerHTML = values.map((item, ix) => {
-    const height = Math.max(8, Math.round(item.value));
-    const isHot = isOptimized ? item.value > 84 : false;
-    return `
-      <div class="chart-bar ${isHot ? "is-hot" : ""}" data-bar="${ix}" style="--height: ${height}%">
-        <span>${escapeHtml(item.label)}</span>
-      </div>
-    `;
-  }).join("");
+function updateVisionImage() {
+  if (!els.visionImage) return;
+  const url = toBrowserImageUrl(state.attachedImagePath);
+  if (url) {
+    if (els.visionImage.getAttribute("src") !== url) {
+      els.visionImage.setAttribute("src", url);
+    }
+    els.visionImage.removeAttribute("hidden");
+    if (els.visionImageCaption) {
+      els.visionImageCaption.textContent = state.attachedImageLabel || "attached image";
+    }
+  } else {
+    els.visionImage.removeAttribute("src");
+    els.visionImage.setAttribute("hidden", "");
+    if (els.visionImageCaption) {
+      els.visionImageCaption.textContent = "no image attached";
+    }
+  }
 }
 
 function renderPlanTabs() {
@@ -816,20 +835,71 @@ function formatPlanText(text) {
 }
 
 function parsePlanSections(text) {
-  const sectionRegex = /(?:^|\n)\s*(?:#{1,3}\s+|\*\*\s*)?(strategy|market(?:\s+analysis)?|risk(?:s)?(?:\s+(?:analysis|register))?|execution(?:\s+plan)?)\s*(?:\*\*)?\s*[:\n-]+/gi;
-  const matches = [];
-  let m;
-  while ((m = sectionRegex.exec(text)) !== null) {
-    matches.push({ key: normalizeSectionKey(m[1]), index: m.index, headerLen: m[0].length });
+  // Line-based parser. A header line is one whose stripped content starts
+  // with a canonical section keyword AND has a recognised separator after
+  // the keyword (`:`, `**`, `-`, `&`, or end-of-line).
+  //
+  // We capture body content from two places:
+  //   - inline on the header line itself (after a `:` or `**` separator),
+  //     e.g. `**Strategy:** the recommended strategy is …`
+  //   - subsequent lines up to the next header
+  // Both are joined into the section's body.
+  const HEADER_KEYWORD = /^(strategy|strategic|market(?:\s+(?:analysis|outlook|landscape))?|risk(?:s)?(?:\s+(?:analysis|register|assessment))?|execution(?:\s+plan)?|implementation(?:\s+plan)?)\b/i;
+
+  const lines = text.split("\n");
+  const headers = [];
+  for (let i = 0; i < lines.length; i++) {
+    let s = lines[i].trim();
+    if (!s) continue;
+    // Repeatedly strip leading decorations: blockquote/list markers (only
+    // when followed by whitespace, so we don't chew a `*` off `**bold**`),
+    // markdown header `#`s, bold openers `**`, and numeric prefixes `1.`/
+    // `1)`/`1:`. The loop handles stacked decorations like `**1. Strategy`.
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/^[>*\-]\s+/, "");
+      s = s.replace(/^#{1,6}\s*/, "");
+      s = s.replace(/^\*\*\s*/, "");
+      s = s.replace(/^\d+[.):]\s*/, "");
+    } while (s !== prev);
+
+    const m = s.match(HEADER_KEYWORD);
+    if (!m) continue;
+
+    const after = s.slice(m[0].length);
+    // Header gate: what follows the keyword must be one of:
+    //   - end-of-line (after trim)                    → `## Strategy`
+    //   - `:` `**` `-` `–` `—` `&` (separators)       → `**Strategy:**`, `## Strategy & Recs`
+    // If anything else follows (e.g. "Strategy is the most important..."),
+    // this is prose, not a header — skip.
+    if (after.trim() && !/^[\s:\-–—&*]/.test(after)) continue;
+
+    // Pull inline body iff a clear separator (`:` or `**`) is present —
+    // a title extension like " & Recommendations" stays in the title.
+    const hasInlineSep = /[:*]/.test(after);
+    let inline = "";
+    if (hasInlineSep) {
+      inline = after
+        .replace(/^\s*\*+\s*/, "")   // bold close before `:`
+        .replace(/^\s*:\s*/, "")     // colon separator
+        .replace(/^\s*\*+\s*/, "")   // bold close after `:`
+        .replace(/\s*\*+\s*$/, "")   // trailing bold close
+        .trim();
+    }
+
+    headers.push({ key: normalizeSectionKey(m[1]), lineIndex: i, inline });
   }
-  if (matches.length < 2) return null;
+  if (headers.length < 2) return null;
+
   const sections = {};
-  for (let i = 0; i < matches.length; i++) {
-    const cur = matches[i];
-    const next = matches[i + 1];
-    const start = cur.index + cur.headerLen;
-    const end = next ? next.index : text.length;
-    const body = text.slice(start, end).trim();
+  for (let i = 0; i < headers.length; i++) {
+    const cur = headers[i];
+    const next = headers[i + 1];
+    const startLine = cur.lineIndex + 1;
+    const endLine = next ? next.lineIndex : lines.length;
+    const trailing = lines.slice(startLine, endLine).join("\n").trim();
+    const body = [cur.inline, trailing].filter(Boolean).join("\n\n").trim();
     if (body) sections[cur.key] = body;
   }
   return Object.keys(sections).length >= 2 ? sections : null;
@@ -837,10 +907,10 @@ function parsePlanSections(text) {
 
 function normalizeSectionKey(raw) {
   const lower = raw.toLowerCase();
-  if (lower.startsWith("strategy")) return "strategy";
+  if (lower.startsWith("strateg")) return "strategy";          // strategy, strategic
   if (lower.startsWith("market")) return "market";
   if (lower.startsWith("risk")) return "risk";
-  if (lower.startsWith("execution")) return "execution";
+  if (lower.startsWith("execution") || lower.startsWith("implementation")) return "execution";
   return lower;
 }
 
@@ -1041,21 +1111,32 @@ function fireBeat(beat) {
 
 function handleAssistantText({ stage, text }) {
   if (!text) return;
-  if (stage === "vision") {
-    setStageSubstate("vision", "streaming");
-    state.visionTextAccumulator = appendText(state.visionTextAccumulator, text);
-    updateVisionCopy(state.visionTextAccumulator);
-    addConsoleEntry("vision", truncate(text, 240));
-  } else if (stage === "aiq") {
-    setStageSubstate("aiq", "streaming");
+
+  // Route by intent, NOT by keyword. The previous logic used `stage` (inferred
+  // from text content via STAGE_HINTS in the normalizers), which meant a final
+  // synthesis paragraph mentioning "Nemotron Omni" got tagged vision and leaked
+  // into the Vision section. We now decide based on where the run actually is:
+  //
+  //   - Vision section is OWNED by the vision tool's stdout (extractVisionSummary
+  //     in handleToolCompleted). Free-form assistant text never writes to it.
+  //   - Plan section captures anything the agent emits once aiq.py has been
+  //     invoked — that's the synthesis phase.
+  //   - Anything earlier is pre-tool narration → console only.
+  const aiqStarted =
+    state.stageState.aiq === "calling" ||
+    state.stageState.aiq === "streaming" ||
+    state.stageState.aiq === "done";
+
+  if (aiqStarted) {
+    if (state.stageState.aiq !== "done") setStageSubstate("aiq", "streaming");
     state.planTextAccumulator = appendText(state.planTextAccumulator, text);
     state.planSections = parsePlanSections(state.planTextAccumulator);
     renderPlanLive();
     renderPlanTabs();
     addConsoleEntry("aiq", truncate(text, 240));
-  } else {
-    addConsoleEntry("general", truncate(text, 400));
+    return;
   }
+  addConsoleEntry("general", truncate(text, 400));
 }
 
 function handleToolInvoked({ id, name, input, stage }) {
@@ -1063,7 +1144,7 @@ function handleToolInvoked({ id, name, input, stage }) {
     setStageSubstate("vision", "calling");
     els.visionConfidence.textContent = "analyzing";
     els.visionConfidence.className = "confidence-chip is-analyzing";
-    els.miniChart.classList.add("is-analyzing");
+    if (els.visionImageWrap) els.visionImageWrap.classList.add("is-analyzing");
   } else if (stage === "aiq") {
     setStageSubstate("aiq", "calling");
     els.researchDepth.textContent = "researching";
@@ -1100,46 +1181,99 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     }
     els.visionConfidence.textContent = "high confidence";
     els.visionConfidence.className = "confidence-chip";
-    els.miniChart.classList.remove("is-analyzing");
-    els.miniChart.classList.add("is-optimized");
-    animateChartBars();
+    if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
     setStageSubstate("vision", "done");
     const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
     if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
   }
 
-  if (stage === "aiq" && !isError) {
-    parseAiqToolOutput(stdout || "", name);
+  if (stage === "aiq") {
+    parseAiqToolOutput(stdout || "", name, isError);
   }
 }
 
-function parseAiqToolOutput(stdout, _name) {
-  // Detect deep_research_running job start
-  const drMatch = stdout.match(/"status"\s*:\s*"deep_research_running"[^}]*?"job_id"\s*:\s*"([^"]+)"/);
+function parseAiqToolOutput(stdout, _name, isError) {
+  // The canonical happy path now is `aiq.py research "<query>" shallow_researcher`,
+  // which prints a single `json.dumps(report, indent=2)` blob on success and a
+  // single status-dict blob on failure (with non-zero exit). We try a clean
+  // JSON.parse first and fall back to the legacy regex probes if that fails
+  // — that fallback keeps us resilient if the agent ignores the prompt and
+  // calls `aiq.py chat` (which emits an OpenAI-shape envelope or a
+  // `deep_research_running` sentinel).
+  const trimmed = (stdout || "").trim();
+  if (!trimmed) {
+    if (isError) {
+      showToast("error", "AIQ research failed with no output. Check the run trace for stderr.");
+      addConsoleEntry("aiq", "AIQ research returned no stdout.");
+    }
+    return;
+  }
+
+  // ---- Path 1: structured JSON (research command, primary path) ----
+  let obj = null;
+  try { obj = JSON.parse(trimmed); } catch (_) { /* fall through */ }
+  if (obj && typeof obj === "object") {
+    const status = (obj.status || obj.job_status?.status || "").toString().toLowerCase();
+
+    // Failure / timeout (research exited 1 with the last polled status dict).
+    if (["failed", "failure", "cancelled", "timeout"].includes(status)) {
+      const reason = obj.error || obj.message || obj.detail || obj.reason || status;
+      showToast("error", `AIQ research did not complete: ${reason}`);
+      addConsoleEntry("aiq", `AIQ research ended in state "${status}" · expand entry for full output.`);
+      return;
+    }
+
+    // Defensive: agent ignored the prompt and used `chat`, which auto-routed to deep.
+    if (status === "deep_research_running" && obj.job_id) {
+      state.aiqJobId = obj.job_id;
+      if (!document.querySelector(".plan-researching")) renderPlanResearching(0);
+      appendResearchFeed("Deep research job started · " + state.aiqJobId.slice(0, 8), true);
+      setSourceCounter(15);
+      showToast("error", "AIQ Research returned an unexpected routing response. Check the run trace for details.");
+      return;
+    }
+
+    // Success: extract report text from the report JSON. Schema isn't fixed,
+    // so probe common locations.
+    const content = findReportContent(obj);
+    if (content && content.length > 80) {
+      state.planTextAccumulator = content;
+      state.planSections = parsePlanSections(content);
+      renderPlanLive();
+      renderPlanTabs();
+      setSourceCounter(100);
+      const newScore = Math.min(state.optimizedScore, state.currentScore + 12);
+      if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1100);
+      return;
+    }
+
+    // Parsed JSON but no recognised content field — dump the JSON in so the
+    // agent's downstream synthesis can still append its `## Strategy/...` block,
+    // which parsePlanSections will then route to the correct tabs.
+    const dumped = JSON.stringify(obj, null, 2);
+    state.planTextAccumulator = dumped;
+    state.planSections = parsePlanSections(dumped);
+    renderPlanLive();
+    renderPlanTabs();
+    if (isError) {
+      showToast("error", "AIQ research returned a non-zero exit with unrecognised payload. See run trace.");
+    }
+    return;
+  }
+
+  // ---- Path 2: non-JSON stdout (legacy `chat` shape or partial output) ----
+
+  const drMatch = trimmed.match(/"status"\s*:\s*"deep_research_running"[^}]*?"job_id"\s*:\s*"([^"]+)"/);
   if (drMatch) {
     state.aiqJobId = drMatch[1];
     if (!document.querySelector(".plan-researching")) renderPlanResearching(0);
     appendResearchFeed("Deep research job started · " + state.aiqJobId.slice(0, 8), true);
     setSourceCounter(15);
+    showToast("error", "AIQ Research returned an unexpected routing response. Check the run trace for details.");
     return;
   }
 
-  // Status update
-  const statusMatch = stdout.match(/"status"\s*:\s*"(running|completed|success|failed|failure|cancelled|TIMEOUT)"/i);
-  if (statusMatch && state.aiqJobId) {
-    const status = statusMatch[1].toLowerCase();
-    appendResearchFeed(`Job ${state.aiqJobId.slice(0, 8)} · ${status}`, true);
-    if (status === "running") {
-      const fill = document.querySelector("#source-counter-fill");
-      const cur = fill ? parseFloat(fill.style.width) || 0 : 0;
-      setSourceCounter(Math.min(95, cur + 20));
-    } else if (status === "completed" || status === "success") {
-      setSourceCounter(100);
-    }
-  }
-
-  // Final content
-  const contentMatch = stdout.match(/"content"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const contentMatch = trimmed.match(/"content"\s*:\s*"((?:\\.|[^"\\])*)"/);
   if (contentMatch) {
     const decoded = jsonStringDecode(contentMatch[1]);
     if (decoded.length > 80) {
@@ -1154,30 +1288,156 @@ function parseAiqToolOutput(stdout, _name) {
     return;
   }
 
-  // Detect need_browser_login
-  if (stdout.includes("need_browser_login")) {
+  if (trimmed.includes("need_browser_login")) {
     showToast("error", "AIQ auth required — run `python3 skills/aiq-research/scripts/aiq.py login` on the host.");
     addConsoleEntry("aiq", "AIQ auth needed: agent reported need_browser_login.");
+    return;
   }
+
+  // Last resort: nothing matched.
+  if (isError) {
+    showToast("error", "AIQ research failed. Check the run trace for details.");
+    addConsoleEntry("aiq", "AIQ research returned non-zero exit · expand entry for output.");
+  }
+}
+
+// Probe a parsed AIQ report JSON for the section of text we care about. The
+// report schema isn't fixed (it depends on the AIQ backend's renderer), so we
+// check the obvious top-level fields, the OpenAI chat-completions envelope,
+// and recurse into common nesting containers. Returns the first string
+// longer than 80 chars, or null.
+function findReportContent(obj) {
+  if (!obj || typeof obj !== "object") return null;
+  const directKeys = ["content", "result", "report", "final_answer", "answer", "text", "message", "output"];
+  for (const k of directKeys) {
+    const v = obj[k];
+    if (typeof v === "string" && v.length > 80) return v;
+  }
+  if (Array.isArray(obj.choices) && obj.choices[0]) {
+    const c = obj.choices[0];
+    if (c.message && typeof c.message.content === "string" && c.message.content.length > 80) return c.message.content;
+    if (typeof c.text === "string" && c.text.length > 80) return c.text;
+  }
+  const nestedKeys = ["result", "data", "report", "response", "payload", "body", "job_state", "artifact"];
+  for (const k of nestedKeys) {
+    if (obj[k] && typeof obj[k] === "object") {
+      const inner = findReportContent(obj[k]);
+      if (inner) return inner;
+    }
+  }
+  return null;
 }
 
 function extractVisionSummary(text) {
   if (!text) return "";
-  const sectionRegex = /#{1,3}\s*(Observations?|Insights?|Summary|TL;DR|Conclusion)\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n\*\*[A-Z]|$)/i;
-  const m = text.match(sectionRegex);
-  if (m && m[2].trim().length > 40) {
-    return collapseMarkdown(m[2]).slice(0, 700);
+
+  // The vision chart preset (skills/vision-insights/scripts/vision_analyze.py)
+  // tells Nemotron Omni to end with `**Observations**`, `**Insights**`,
+  // `**Actionable Recommendations**` — BOLD section labels, not `##` headers.
+  // The old regex only matched `##`-prefixed headings, so the structured path
+  // never triggered and we fell into a hard 500-char slice that cut mid-word.
+  //
+  // Line-based parser that recognises both `## Heading` and `**Bold**` section
+  // markers (and inline content after `:`), then picks the most useful section.
+  const SECTION_NAMES = /^(observations?|insights?|key\s+insights?|summary|tl;?\s*dr|conclusion|actionable\s+recommendations?|recommendations?)\b/i;
+
+  const lines = text.split("\n");
+  const headers = [];
+  for (let i = 0; i < lines.length; i++) {
+    let s = lines[i].trim();
+    if (!s) continue;
+    // Strip leading decorations: list bullets (with required space so a `**`
+    // bold opener isn't eaten), markdown header `#`s, bold openers, numbered
+    // prefixes. Loop because decorations can stack: `- **Insights**`.
+    let prev;
+    do {
+      prev = s;
+      s = s.replace(/^[>*\-]\s+/, "");
+      s = s.replace(/^#{1,6}\s*/, "");
+      s = s.replace(/^\*\*\s*/, "");
+      s = s.replace(/^\d+[.):]\s*/, "");
+    } while (s !== prev);
+
+    const m = s.match(SECTION_NAMES);
+    if (!m) continue;
+    // The keyword must be followed by either end-of-line or a separator
+    // (`:`, `*`, `-`, `–`, `—`). Anything else means it's prose, not a header
+    // (e.g. "Insights suggest the operator should…").
+    const after = s.slice(m[0].length);
+    if (after.trim() && !/^[\s:\-–—*]/.test(after)) continue;
+
+    // Capture inline content after a clear separator (`:` or `**`).
+    let inline = "";
+    if (/[:*]/.test(after)) {
+      inline = after
+        .replace(/^\s*\*+\s*/, "")   // bold close before colon
+        .replace(/^\s*:\s*/, "")     // colon separator
+        .replace(/^\s*\*+\s*/, "")   // bold close after colon
+        .replace(/\s*\*+\s*$/, "")   // trailing bold close
+        .trim();
+    }
+
+    headers.push({
+      name: normalizeVisionSection(m[1]),
+      lineIndex: i,
+      inline
+    });
   }
-  // Fallback: first ~400 chars of prose-looking lines
-  const lines = text.split(/\n+/).filter((line) => {
+
+  if (headers.length > 0) {
+    const sections = {};
+    for (let i = 0; i < headers.length; i++) {
+      const cur = headers[i];
+      const next = headers[i + 1];
+      const startLine = cur.lineIndex + 1;
+      const endLine = next ? next.lineIndex : lines.length;
+      const trailing = lines.slice(startLine, endLine).join("\n").trim();
+      const body = collapseMarkdown([cur.inline, trailing].filter(Boolean).join("\n")).trim();
+      if (body.length > 20 && !sections[cur.name]) {
+        sections[cur.name] = body;
+      }
+    }
+    // Prefer Insights (the highest-value content) → Summary → Observations →
+    // Recommendations. The chart preset emits all four; we surface the best one.
+    for (const k of ["insights", "summary", "observations", "recommendations"]) {
+      if (sections[k]) return sections[k].slice(0, 1500);
+    }
+  }
+
+  // Fallback: full prose, clipped at a sentence boundary near 900 chars so we
+  // never dangle mid-word (the original bug shipped a hard 500-char .slice).
+  const proseLines = text.split(/\n+/).filter((line) => {
     const t = line.trim();
     if (!t) return false;
-    if (t.startsWith("|")) return false;     // table
-    if (t.startsWith("#")) return false;     // heading
-    if (t.startsWith("**") && t.endsWith("**")) return false;  // bold heading
+    if (t.startsWith("|")) return false;     // markdown table row
+    if (t.startsWith("#")) return false;     // markdown heading
+    if (t.startsWith("**") && t.endsWith("**")) return false;  // bold heading on its own line
     return true;
   });
-  return collapseMarkdown(lines.join(" ")).slice(0, 500);
+  return clipToSentence(collapseMarkdown(proseLines.join(" ")), 900);
+}
+
+function normalizeVisionSection(raw) {
+  const lower = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  if (lower.includes("insight")) return "insights";          // "insight(s)", "key insight(s)"
+  if (lower.startsWith("observation")) return "observations";
+  if (lower === "summary" || lower.startsWith("tl") || lower === "conclusion") return "summary";
+  if (lower.includes("recommend") || lower.includes("actionable")) return "recommendations";
+  return lower;
+}
+
+function clipToSentence(text, maxLen) {
+  if (!text || text.length <= maxLen) return text || "";
+  const slice = text.slice(0, maxLen);
+  // Find the latest sentence terminator in the back half of the slice so we
+  // don't truncate to a near-empty result on short text.
+  let lastEnd = -1;
+  for (const sep of [". ", "! ", "? ", ".\n", "!\n", "?\n"]) {
+    const idx = slice.lastIndexOf(sep);
+    if (idx > lastEnd) lastEnd = idx;
+  }
+  if (lastEnd > maxLen * 0.5) return slice.slice(0, lastEnd + 1).trim();
+  return slice.trim() + "…";
 }
 
 function collapseMarkdown(s) {
@@ -1207,7 +1467,10 @@ function updateVisionCopy(text) {
     els.visionCopy.textContent = trimmed;
   } else {
     state.hasInitializedVisionTypewriter = true;
-    typewrite(els.visionCopy, trimmed, 40);
+    // Scale speed with length so a longer Insights extraction doesn't take 30s.
+    // 40 cps was fine for the old 500-char hard slice; bump for longer text.
+    const cps = trimmed.length > 600 ? 120 : 60;
+    typewrite(els.visionCopy, trimmed, cps);
   }
 }
 
@@ -1222,15 +1485,59 @@ function handleLogBeat({ level, text }) {
  * ============================================================ */
 
 function summarizeToolInput(name, input) {
+  // We render the full input into the preview so the user can read it via the
+  // expand toggle even while the tool is still running. The CSS clamps the
+  // collapsed view to ~2 lines; the toggle reveals the rest. Cap at 4000 chars
+  // so a pathological 1 MB heredoc doesn't bloat the DOM.
   if (!input) return "";
-  if (typeof input === "string") return truncate(input, 200);
+  if (typeof input === "string") return truncate(input, 4000);
   const n = (name || "").toLowerCase();
-  if (n === "bash") return truncate((input.command || "").split("\n")[0], 240);
-  if (n === "read" || n === "read_file") return truncate(input.file_path || input.path || "", 240);
-  if (n === "write" || n === "write_file") return truncate((input.file_path || input.path || "") + " (write)", 240);
-  if (n === "edit" || n === "edit_file") return truncate((input.file_path || input.path || "") + " (edit)", 240);
-  const json = (() => { try { return JSON.stringify(input); } catch (_) { return "(unstringifiable)"; } })();
-  return truncate(json, 240);
+  if (n === "bash") return truncate(input.command || "", 4000);
+  if (n === "read" || n === "read_file") return truncate(input.file_path || input.path || "", 4000);
+  if (n === "write" || n === "write_file") return truncate((input.file_path || input.path || "") + " (write)", 4000);
+  if (n === "edit" || n === "edit_file") return truncate((input.file_path || input.path || "") + " (edit)", 4000);
+  const json = (() => { try { return JSON.stringify(input, null, 2); } catch (_) { return "(unstringifiable)"; } })();
+  return truncate(json, 4000);
+}
+
+// Decide whether a tool-preview block needs an expand toggle. The CSS clamps
+// the collapsed view to max-height: 4em, which fits ~2 lines at the trace
+// font-size. Anything longer than that — by char count or by line count —
+// gets the toggle so the user can see the full content.
+function shouldShowToolToggle(text) {
+  if (!text) return false;
+  if (text.length > 120) return true;
+  if (text.split("\n").length > 2) return true;
+  return false;
+}
+
+// Idempotent: creates the toggle if missing, removes it if no longer needed,
+// and reflects the current expanded state. `label` is the "show more" wording
+// (we swap to "Collapse" when expanded). Used by both renderToolEntry (input
+// preview) and updateToolEntry (stdout preview), so a user who expanded a
+// running tool keeps their expanded view after it completes.
+function ensureToolToggle(li, text, label) {
+  if (!li) return;
+  if (!shouldShowToolToggle(text)) {
+    const existing = li.querySelector(".tool-toggle");
+    if (existing) existing.remove();
+    li.classList.remove("is-expanded");
+    return;
+  }
+  let toggle = li.querySelector(".tool-toggle");
+  if (!toggle) {
+    toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "tool-toggle";
+    toggle.addEventListener("click", () => {
+      const expanded = li.classList.toggle("is-expanded");
+      toggle.textContent = expanded ? "Collapse" : (li.dataset.expandLabel || "Show more");
+    });
+    const innerWrap = li.querySelector(".tool-meta").parentNode;
+    innerWrap.appendChild(toggle);
+  }
+  li.dataset.expandLabel = label;
+  toggle.textContent = li.classList.contains("is-expanded") ? "Collapse" : label;
 }
 
 function renderToolEntry({ id, name, stage, input, status, skillId }) {
@@ -1254,6 +1561,7 @@ function renderToolEntry({ id, name, stage, input, status, skillId }) {
     </div>
   `;
   els.console.prepend(li);
+  ensureToolToggle(li, inputPreview, "Show full command");
 }
 
 function updateToolEntry({ id, status, stdout, stderr, durationMs }) {
@@ -1271,19 +1579,7 @@ function updateToolEntry({ id, status, stdout, stderr, durationMs }) {
     if (stderr && stderr.trim()) text += (text ? "\n--- stderr ---\n" : "") + stderr.trim();
     if (!text) text = status === "error" ? "(error · no output)" : "(no output)";
     preview.textContent = text;
-
-    const innerWrap = li.querySelector("div > div");
-    if (innerWrap && text.length > 200 && !li.querySelector(".tool-toggle")) {
-      const toggle = document.createElement("button");
-      toggle.type = "button";
-      toggle.className = "tool-toggle";
-      toggle.textContent = "Show full output";
-      toggle.addEventListener("click", () => {
-        const expanded = li.classList.toggle("is-expanded");
-        toggle.textContent = expanded ? "Collapse" : "Show full output";
-      });
-      innerWrap.parentNode.appendChild(toggle);
-    }
+    ensureToolToggle(li, text, "Show full output");
   }
 
   if (typeof durationMs === "number") {
@@ -1401,25 +1697,6 @@ function animateScore(from, to, duration = 1000) {
   });
 }
 
-function animateChartBars() {
-  const baseline = state.data.capacity.baseline;
-  const optimized = state.data.capacity.optimized;
-  els.miniChart.classList.remove("is-baseline", "is-analyzing");
-  els.miniChart.classList.add("is-optimized");
-  const bars = els.miniChart.querySelectorAll(".chart-bar");
-  bars.forEach((bar, ix) => {
-    const fromVal = baseline[ix].value;
-    const toVal = optimized[ix].value;
-    setTimeout(() => {
-      bar.classList.toggle("is-hot", toVal > 84);
-      tween({
-        from: Math.max(8, fromVal), to: Math.max(8, toVal),
-        duration: 1100, easing: easeOutCubic, key: `chart-bar-${ix}`,
-        onUpdate: (v) => bar.style.setProperty("--height", v + "%")
-      });
-    }, ix * 90);
-  });
-}
 
 /* ============================================================
  * Typewriter + console
@@ -1613,7 +1890,7 @@ async function resetRun() {
 
   applyIdleState();
   renderMetrics("baseline");
-  renderChart("baseline");
+  updateVisionImage();
 }
 
 function setHarness(harness) {
@@ -1656,6 +1933,7 @@ async function attachImage(file) {
     state.attachedImageLabel = file.name;
     state.attachedImageState = "upload";
     renderAttachedChip();
+    updateVisionImage();
   } catch (err) {
     setPromptError("upload error: " + (err && err.message));
   }
@@ -1666,6 +1944,7 @@ function resetSampleImage() {
   state.attachedImageLabel = (state.data.sample && state.data.sample.imageLabel) || "sample-capacity.png";
   state.attachedImageState = "sample";
   renderAttachedChip();
+  updateVisionImage();
 }
 
 function detachImage() {
@@ -1673,6 +1952,7 @@ function detachImage() {
   state.attachedImageLabel = null;
   state.attachedImageState = "none";
   renderAttachedChip();
+  updateVisionImage();
 }
 
 function renderAttachedChip() {

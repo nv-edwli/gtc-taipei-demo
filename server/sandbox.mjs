@@ -116,14 +116,20 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
     "You are the orchestrator for an NVIDIA GTC Taipei demo about CUDA-X skills.",
     "",
     "Available skill scripts (call them directly via the Bash tool):",
+    `  - cuOpt Routing:  python3 ${skillsDir}/cuopt/cuopt-server-api-python/assets/taiwan_supply_chain/run.py`,
+    `    (Solves the Taiwan manufacturing supply-chain routing problem via the cuOpt REST server at`,
+    `     host.openshell.internal:8002 — runs on the GB10 GPU on the host. Prints a single JSON envelope`,
+    `     on stdout with shape {kind:"cuopt.result", status, objective_value, selected_lanes[], metrics{},`,
+    `     capacity[], explanation}. No arguments; the scenario is encoded in the script. Typical runtime: 2-15s.)`,
     `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 <image-path>`,
     `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout)`,
     `  - AIQ Research:   python3 ${skillsDir}/aiq-research/scripts/aiq.py check-auth`,
-    `                    python3 ${skillsDir}/aiq-research/scripts/aiq.py chat "<query>"`,
-    `    (shallow research with citations; chat returns the response inline within seconds.`,
-    `     This demo runs in shallow mode for snappy turnaround — do NOT request the deep_researcher`,
-    `     agent type, and do not invoke research_poll / report. If chat ever returns`,
-    `     {"status":"deep_research_running",...}, treat that as an error and stop.)`,
+    `                    python3 ${skillsDir}/aiq-research/scripts/aiq.py research "<query>" shallow_researcher`,
+    `    (Submits a shallow async research job, polls server-side, and prints the final report JSON on stdout.`,
+    `     The trailing \`shallow_researcher\` argument is REQUIRED — it forces the explicit-agent-type code path`,
+    `     and bypasses the /chat endpoint's auto-router (which sometimes promotes broad queries to deep research`,
+    `     even when the user asks for shallow). Do NOT use \`chat\`, \`submit\`, \`research_poll\`, or \`report\` here.`,
+    `     Do NOT pass \`deep_researcher\` as the agent_type. Expect 20–60s of polling before stdout returns.)`,
     ""
   ];
 
@@ -134,10 +140,38 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   }
 
   lines.push("Guidance:");
-  lines.push("- Before calling AIQ Research, run aiq.py check-auth. If it returns need_browser_login, stop and report.");
-  lines.push("- Use a single shallow aiq.py chat call — do not initiate deep research jobs.");
+  lines.push("- Call cuOpt FIRST. The optimized lanes, per-node utilization, and economic metrics it returns are the");
+  lines.push("  factual basis the later stages depend on. Run it once, parse its stdout JSON envelope, and reference");
+  lines.push("  its numbers (objective_value, selected_lanes, peak_capacity_pressure) in your synthesis. If cuOpt");
+  lines.push("  fails or returns status != \"solved\", stop and report — do not fabricate routes.");
+  lines.push("- Before calling AIQ Research, run `aiq.py check-auth`. If it returns need_browser_login, stop and report.");
+  lines.push("- Issue exactly ONE AIQ research call as: `aiq.py research \"<query>\" shallow_researcher`.");
+  lines.push("  The `shallow_researcher` argument is mandatory — do not omit it, do not substitute `deep_researcher`,");
+  lines.push("  and do not fall back to `aiq.py chat`. The `research` command blocks for 20–60s while it polls server-side;");
+  lines.push("  that wait is expected, not a failure. When it returns, its stdout will be the report JSON.");
   lines.push("- Keep each tool call focused; do not retry on transient errors more than twice.");
-  lines.push("- When the run is complete, output a short final synthesis covering strategy, market, risk, and execution.");
+  lines.push("");
+  lines.push("Final synthesis output format (STRICT — the UI parses these headers):");
+  lines.push("After your tool calls complete, emit the brief as your final assistant message,");
+  lines.push("using EXACTLY these four level-2 markdown headers in this order, nothing else:");
+  lines.push("");
+  lines.push("    ## Strategy");
+  lines.push("    <one focused paragraph on the recommended strategy>");
+  lines.push("");
+  lines.push("    ## Market");
+  lines.push("    <one focused paragraph on the market / competitive landscape>");
+  lines.push("");
+  lines.push("    ## Risk");
+  lines.push("    <one focused paragraph on the key risks>");
+  lines.push("");
+  lines.push("    ## Execution");
+  lines.push("    <one focused paragraph on the phased execution plan>");
+  lines.push("");
+  lines.push("Rules:");
+  lines.push("- Use these four headers verbatim — no numbering, no extra words (not `## Strategic Plan`, not `## 1. Strategy`).");
+  lines.push("- Do NOT add an executive summary, conclusion, or any other section before/between/after them.");
+  lines.push("- Do NOT mention `Nemotron Omni`, `Vision Insights`, `AIQ Research`, or `aiq.py` in the synthesis body — those tool names confuse the UI's routing. Refer to findings without naming the skill.");
+  lines.push("- Keep paragraphs concise (2–4 sentences each).");
   lines.push("");
   return lines.join("\n");
 }

@@ -70,7 +70,7 @@ These are exposed in the system prime. Call them directly via the harness's Bash
 
 - `python3 skills/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 <image-path>` — analyzes the supplied chart with Nemotron Omni; returns the final summary on stdout.
 - `python3 skills/aiq-research/scripts/aiq.py check-auth` — auth probe. If it prints `need_browser_login`, stop and report; do not attempt `login` from inside the demo.
-- `python3 skills/aiq-research/scripts/aiq.py chat "<query>"` — shallow research, inline response within seconds. **Never** request the `deep_researcher` agent type or call `research_poll` / `report`; if `chat` ever returns `{"status":"deep_research_running",...}`, treat it as an error.
+- `python3 skills/aiq-research/scripts/aiq.py research "<query>" shallow_researcher` — shallow research, submits an async job and polls server-side; final report JSON is printed on stdout when the job completes (typically 20–60s). The `shallow_researcher` argument is **mandatory** — it forces the explicit-agent-type code path and sidesteps `/chat`'s auto-router (which sometimes promotes broad queries to deep research). **Never** use `aiq.py chat`, `submit`, `research_poll`, or `report` from inside a demo run, and never pass `deep_researcher` as the agent type. The orchestrator still defensively recognises a `{"status":"deep_research_running",...}` response and surfaces it as an error.
 
 The cuOpt skill is currently mocked through `data/supply-chain.json`. The contract for the live version lives at `skills/cuopt/contract.md`; the broader sub-skill bundle is under `skills/cuopt/`.
 
@@ -97,7 +97,7 @@ The orchestrator writes NDJSON beats of the form `{ "kind": "...", "data": {...}
 ## What not to do
 
 - Do not introduce a frontend framework or a bundler — the dependency-free constraint is intentional.
-- Do not call `aiq.py login`, `research_poll`, `status`, or `report` from inside a demo run. Shallow `chat` only.
+- Do not call `aiq.py chat`, `login`, `submit`, `research_poll`, `status`, or `report` from inside a demo run. Only `aiq.py research "<query>" shallow_researcher` is allowed for AIQ research calls.
 - Do not commit anything that would belong in `.env` or under `node_modules/`.
 - Do not change the `/api/run` NDJSON shape without updating both normalizers and the frontend reader in lockstep.
 
