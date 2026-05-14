@@ -37,7 +37,9 @@ const state = {
   sandboxStatus: null,           // { reachable, reason }
   attachedImagePath: null,
   attachedImageLabel: null,
-  attachedImageState: "sample",  // "sample" | "upload" | "none"
+  attachedImageState: "none",    // "sample" | "upload" | "none". Default is "none" —
+                                 // the user clicks "load sample query" to attach the
+                                 // bundled sample, or "attach image" to upload their own.
   policyText: null,
   policyDrawerOpen: false,
   visionTextAccumulator: "",
@@ -160,11 +162,14 @@ async function boot() {
   collectEls();
   wireEvents();
 
-  state.attachedImagePath = (state.data.sample && state.data.sample.imagePath) || SAMPLE_IMAGE_PATH;
-  state.attachedImageLabel = (state.data.sample && state.data.sample.imageLabel) || "sample-capacity.png";
-  state.attachedImageState = "sample";
+  // Initial state: empty terminal, no attached image. The user can click
+  // "load sample query" to populate the textarea + attach the bundled sample
+  // image in one go. We DO still restore an in-flight sessionStorage draft so
+  // an accidental refresh-during-typing doesn't lose work.
+  state.attachedImagePath = null;
+  state.attachedImageLabel = null;
+  state.attachedImageState = "none";
 
-  await loadDefaultPrompt();
   const stored = (typeof sessionStorage !== "undefined") && sessionStorage.getItem(PROMPT_STORAGE_KEY);
   if (stored) els.promptInput.value = stored;
 
