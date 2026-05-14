@@ -402,6 +402,14 @@ function applyIdleState() {
   els.visionConfidence.textContent = "standby";
   els.visionConfidence.className = "confidence-chip is-quiet";
   renderVisionSkeleton();
+  // Baseline capacity chart so the panel isn't empty before the first run.
+  const baselineCapRows = state.data.capacity.baseline.map((row, i) => ({
+    label: row.label,
+    value: row.value,                                      // current = baseline
+    baseline: row.value,                                   // baseline-line same as value
+    dataSource: "mock"
+  }));
+  renderCapacityChart(baselineCapRows, "fallback", "");
   els.researchDepth.textContent = "queued";
   els.researchDepth.className = "confidence-chip is-quiet";
   els.metricsEyebrow.textContent = "Baseline today";
@@ -740,8 +748,6 @@ function animateMetricBars(fromRows, toRows) {
     // envelope. CSS uses [data-source="mock"] to tint the bar slightly.
     li.setAttribute("data-source", target.dataSource || "envelope");
   });
-
-  els.metricsEyebrow.textContent = "Optimized";
 }
 
 function renderCapacitySkeleton() {
@@ -780,7 +786,7 @@ function renderCapacityChart(rows, status, explanation) {
     const deltaText = delta === 0 ? "—"
                      : (delta < 0 ? "−" : "+") + Math.abs(delta);
     return `
-      <div class="capacity-row" role="listitem" data-source="${row.dataSource}" data-node="${escapeHtml(row.label)}">
+      <div class="capacity-row" role="listitem" data-source="${escapeHtml(row.dataSource)}" data-node="${escapeHtml(row.label)}">
         <span class="capacity-label">${escapeHtml(row.label)}</span>
         <div class="capacity-track">
           <div class="capacity-fill-baseline" style="--baseline-pct: ${row.baseline}%"></div>
@@ -1290,7 +1296,7 @@ function applyCuoptResult(result) {
 
   // Map state + supporting routes (reveal-supports delayed so the active
   // route's CSS transition lands first)
-  setMapStatus(result.status === "infeasible" ? "solving" : "solved");
+  setMapStatus("solved");
   applyMapRoute("reveal-active");
   applyMapRoute("fade-baseline");
   setTimeout(() => applyMapRoute("reveal-supports"), 200);
