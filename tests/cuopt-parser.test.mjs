@@ -41,3 +41,99 @@ test("looksLikeCuoptResult rejects short / empty / unrelated text", () => {
   assert.equal(cuopt.looksLikeCuoptResult("hello world"), false);
   assert.equal(cuopt.looksLikeCuoptResult('{"some":"json","but":"unrelated"}'), false);
 });
+
+const SOLVED_ENVELOPE = {
+  kind: "cuopt.result",
+  status: "solved",
+  objective_value: 4321.5,
+  selected_lanes: [
+    { from: "taipei", to: "hsinchu", mode: "truck", weekly_lots: 420 }
+  ],
+  metrics: {
+    weekly_logistics_cost_usd: 5_600_000,
+    mean_cycle_days: 4.3,
+    unassigned_priority_lots: 4,
+    peak_capacity_pressure: 0.71
+  },
+  capacity: [
+    { node: "hsinchu", utilization: 0.82 },
+    { node: "taichung", utilization: 0.68 },
+    { node: "tainan", utilization: 0.77 },
+    { node: "kaohsiung", utilization: 0.61 },
+    { node: "taoyuan", utilization: 0.59 }
+  ],
+  explanation: "Solved on cuOpt with 6 vehicles across 5 lanes."
+};
+const SOLVED_JSON = JSON.stringify(SOLVED_ENVELOPE);
+
+test("parseCuoptToolOutput: clean solved envelope", () => {
+  const result = cuopt.parseCuoptToolOutput(SOLVED_JSON, false);
+  assert.equal(result.status, "solved");
+  assert.equal(result.envelope.metrics.peak_capacity_pressure, 0.71);
+});
+
+test("parseCuoptToolOutput: infeasible envelope still parses", () => {
+  const env = { ...SOLVED_ENVELOPE, status: "infeasible" };
+  const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), true);
+  assert.equal(result.status, "infeasible");
+  assert.ok(result.envelope);
+});
+
+test("parseCuoptToolOutput: script_error on empty stdout + error", () => {
+  const result = cuopt.parseCuoptToolOutput("", true);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "script_error");
+});
+
+test("parseCuoptToolOutput: parse_failed on empty stdout no error", () => {
+  const result = cuopt.parseCuoptToolOutput("", false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "parse_failed");
+});
+
+test("parseCuoptToolOutput: parse_failed on garbage stdout", () => {
+  const result = cuopt.parseCuoptToolOutput("not json {{{", false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "parse_failed");
+});
+
+test("parseCuoptToolOutput: parse_failed on truncated JSON", () => {
+  const truncated = SOLVED_JSON.slice(0, 80);
+  const result = cuopt.parseCuoptToolOutput(truncated, false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "parse_failed");
+});
+
+test("parseCuoptToolOutput: bad_shape on JSON missing kind", () => {
+  const env = { ...SOLVED_ENVELOPE };
+  delete env.kind;
+  const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "bad_shape");
+});
+
+test("parseCuoptToolOutput: bad_shape on JSON missing metrics", () => {
+  const env = { ...SOLVED_ENVELOPE };
+  delete env.metrics;
+  const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "bad_shape");
+});
+
+test("parseCuoptToolOutput: bad_shape on unknown status", () => {
+  const env = { ...SOLVED_ENVELOPE, status: "weird" };
+  const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), false);
+  assert.equal(result.status, "fallback");
+  assert.equal(result.reason, "bad_shape");
+});
+
+test("parseCuoptToolOutput: error exit + valid envelope routes through envelope status", () => {
+  const env = { ...SOLVED_ENVELOPE, status: "infeasible" };
+  const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), true);
+  assert.equal(result.status, "infeasible");
+});
+
+test("parseCuoptToolOutput: tolerates leading whitespace", () => {
+  const result = cuopt.parseCuoptToolOutput("\n\n  " + SOLVED_JSON + "\n", false);
+  assert.equal(result.status, "solved");
+});

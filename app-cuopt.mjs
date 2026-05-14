@@ -30,8 +30,32 @@ export function looksLikeCuoptResult(text) {
   if (/"selected_lanes"\s*:/.test(head) && /"objective_value"\s*:/.test(head)) return true;
   return false;
 }
-export function parseCuoptToolOutput(_stdout, _isError) {   // implemented Task 3
-  return { status: "fallback", reason: "not_implemented" };
+const VALID_STATUSES = new Set(["solved", "infeasible"]);
+
+export function parseCuoptToolOutput(stdout, isError) {
+  const trimmed = typeof stdout === "string" ? stdout.trim() : "";
+  if (!trimmed) {
+    return { status: "fallback", reason: isError ? "script_error" : "parse_failed" };
+  }
+  let envelope;
+  try {
+    envelope = JSON.parse(trimmed);
+  } catch (_) {
+    return { status: "fallback", reason: "parse_failed" };
+  }
+  if (!envelope || typeof envelope !== "object") {
+    return { status: "fallback", reason: "bad_shape" };
+  }
+  if (envelope.kind !== "cuopt.result") {
+    return { status: "fallback", reason: "bad_shape" };
+  }
+  if (!envelope.metrics || typeof envelope.metrics !== "object") {
+    return { status: "fallback", reason: "bad_shape" };
+  }
+  if (!VALID_STATUSES.has(envelope.status)) {
+    return { status: "fallback", reason: "bad_shape" };
+  }
+  return { status: envelope.status, envelope };
 }
 export function cuoptEnvelopeToUiValues(_envelope, _data) { return null; }  // Task 4
 export function mockToUiValues(_data) { return null; }                       // Task 4
