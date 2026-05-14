@@ -1346,7 +1346,13 @@ function handleAssistantText({ stage, text }) {
 }
 
 function handleToolInvoked({ id, name, input, stage }) {
-  if (stage === "vision") {
+  if (stage === "cuopt") {
+    setStageSubstate("cuopt", "calling");
+    applyMapRoute("shimmer");
+    setMapStatus("solving");
+    renderMetricsSkeleton();
+    renderCapacitySkeleton();
+  } else if (stage === "vision") {
     setStageSubstate("vision", "calling");
     els.visionConfidence.textContent = "analyzing";
     els.visionConfidence.className = "confidence-chip is-analyzing";
@@ -1364,8 +1370,6 @@ function handleToolInvoked({ id, name, input, stage }) {
       finalizeVisionDone();
       state.visionBackgroundBashId = null;
     }
-  } else if (state.stageState.cuopt === "idle" && stage === "general") {
-    /* leave cuopt idle for skipping later */
   }
   const skillId = matchSkill(name, input);
   if (skillId) markSkillCalled(skillId);
