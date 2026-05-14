@@ -213,6 +213,9 @@ function collectEls() {
   els.skillStack = document.querySelector("#skill-stack");
   els.metricBars = document.querySelector("#metric-bars");
   els.metricsEyebrow = document.querySelector("#metrics-eyebrow");
+  els.capacityBars = document.querySelector("#capacity-bars");
+  els.capacityExplanation = document.querySelector("#capacity-explanation");
+  els.capacitySource = document.querySelector("#capacity-source");
   els.visionImage = document.querySelector("#vision-image");
   els.visionImageWrap = document.querySelector(".vision-image-wrap");
   els.visionImageCaption = document.querySelector("#vision-image-caption");
@@ -739,6 +742,70 @@ function animateMetricBars(fromRows, toRows) {
   });
 
   els.metricsEyebrow.textContent = "Optimized";
+}
+
+function renderCapacitySkeleton() {
+  const rows = [0, 1, 2, 3, 4, 5, 6].map((ix) => `
+    <div class="capacity-row is-skeleton" role="listitem" data-row="${ix}">
+      <span class="capacity-label">…</span>
+      <div class="capacity-track">
+        <div class="capacity-fill-baseline" style="--baseline-pct: 0%"></div>
+        <div class="capacity-fill-optimized" style="--optimized-pct: 0%"></div>
+      </div>
+      <span class="capacity-delta">—</span>
+    </div>
+  `).join("");
+  els.capacityBars.innerHTML = rows;
+  els.capacityExplanation.hidden = true;
+  els.capacitySource.className = "confidence-chip is-quiet";
+  els.capacitySource.textContent = "solving…";
+}
+
+function renderCapacityChart(rows, status, explanation) {
+  const chipText = status === "solved" ? "from cuOpt"
+                  : status === "infeasible" ? "cuOpt partial"
+                  : "reference plan";
+  const chipClass = status === "solved" ? "confidence-chip"
+                   : status === "infeasible" ? "confidence-chip is-warn"
+                   : "confidence-chip is-quiet";
+  els.capacitySource.className = chipClass;
+  els.capacitySource.textContent = chipText;
+
+  els.capacityBars.innerHTML = rows.map((row) => {
+    const delta = row.value - row.baseline;
+    // Buffer is the only node where a positive delta (higher utilization) is good.
+    const isBuffer = row.label === "Buffer";
+    const deltaClass = isBuffer && delta > 0 ? "capacity-delta is-buffer-positive"
+                      : "capacity-delta";
+    const deltaText = delta === 0 ? "—"
+                     : (delta < 0 ? "−" : "+") + Math.abs(delta);
+    return `
+      <div class="capacity-row" role="listitem" data-source="${row.dataSource}" data-node="${escapeHtml(row.label)}">
+        <span class="capacity-label">${escapeHtml(row.label)}</span>
+        <div class="capacity-track">
+          <div class="capacity-fill-baseline" style="--baseline-pct: ${row.baseline}%"></div>
+          <div class="capacity-fill-optimized" style="--optimized-pct: 0%"></div>
+        </div>
+        <span class="${deltaClass}">${escapeHtml(deltaText)}</span>
+      </div>
+    `;
+  }).join("");
+
+  // Trigger the optimized-fill animation with a one-frame delay so the
+  // browser commits the initial 0% width before transitioning to the target.
+  requestAnimationFrame(() => {
+    els.capacityBars.querySelectorAll(".capacity-row").forEach((el, ix) => {
+      const opt = el.querySelector(".capacity-fill-optimized");
+      if (opt) opt.style.setProperty("--optimized-pct", rows[ix].value + "%");
+    });
+  });
+
+  if (explanation) {
+    els.capacityExplanation.textContent = explanation;
+    els.capacityExplanation.hidden = false;
+  } else {
+    els.capacityExplanation.hidden = true;
+  }
 }
 
 function toBrowserImageUrl(hostPath) {
