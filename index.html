@@ -239,6 +239,18 @@
               </div>
               <div class="metric-bars" id="metric-bars"></div>
             </article>
+
+            <article class="panel capacity-panel" aria-labelledby="capacity-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow" id="capacity-eyebrow">Per-node utilization</span>
+                  <h2 id="capacity-title">Capacity pressure</h2>
+                </div>
+                <span class="confidence-chip is-quiet" id="capacity-source">reference plan</span>
+              </div>
+              <div class="capacity-bars" id="capacity-bars" role="list"></div>
+              <p class="capacity-explanation" id="capacity-explanation" hidden></p>
+            </article>
           </div>
 
           <!-- Stage 3: Vision Insights -->
@@ -258,6 +270,7 @@
                 </figure>
                 <div class="insight-copy" id="vision-copy"></div>
               </div>
+              <div class="vision-full-row" id="vision-full-row" hidden></div>
             </article>
           </div>
 

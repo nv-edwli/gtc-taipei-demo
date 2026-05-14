@@ -1,3 +1,11 @@
+import {
+  parseCuoptToolOutput,
+  cuoptEnvelopeToUiValues,
+  mockToUiValues,
+  looksLikeCuoptResult,
+  CUOPT_SCORE_PENALTY
+} from "./app-cuopt.mjs";
+
 const REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const SAMPLE_IMAGE_PATH = "/home/nvidia/gtc-taipei-demo/data/sample-capacity.png";
@@ -48,7 +56,33 @@ const state = {
   // harness's "Command running in background with ID: …" preamble, not the
   // real Nemotron output. We stash the bash_id here and watch subsequent
   // tool results for the actual vision content. See handleToolCompleted.
-  visionBackgroundBashId: null
+  visionBackgroundBashId: null,
+
+  // Same pattern for the cuopt script.
+  cuoptBackgroundBashId: null,
+
+  // Sticky: true once applyCuoptResult has committed once for this run.
+  // Guards against double-fire (e.g. agent invokes cuopt twice) and lets
+  // the setStageSubstate guard + finishRun safety-net know cuopt is settled.
+  cuoptResolved: false,
+
+  // Raw aiq.py report text (the "report" field from the envelope). The plan
+  // tabs render the agent's curated synthesis only, but we surface this full
+  // research body below the active section in a collapsible details element
+  // so users can dig into the underlying sources.
+  planReportRaw: null,
+
+  // Open/closed state for the full-report <details> element. The same report
+  // appears under every plan tab, so the user's toggle decision should
+  // persist when they switch tabs. Default: open (so users see the full
+  // research body the first time AIQ lands; one click hides it everywhere).
+  planFullReportOpen: true,
+
+  // Raw vision_analyze.py stdout for the same reason — the Vision panel
+  // shows a curated Insights paragraph at the top, with the full analysis
+  // (5 numbered detail sections + observations + recommendations) available
+  // under an "Expand full analysis" details element.
+  visionFullText: null
 };
 
 const SKILL_ACTIVE_FADE_MS = 1400;
@@ -197,10 +231,14 @@ function collectEls() {
   els.skillStack = document.querySelector("#skill-stack");
   els.metricBars = document.querySelector("#metric-bars");
   els.metricsEyebrow = document.querySelector("#metrics-eyebrow");
+  els.capacityBars = document.querySelector("#capacity-bars");
+  els.capacityExplanation = document.querySelector("#capacity-explanation");
+  els.capacitySource = document.querySelector("#capacity-source");
   els.visionImage = document.querySelector("#vision-image");
   els.visionImageWrap = document.querySelector(".vision-image-wrap");
   els.visionImageCaption = document.querySelector("#vision-image-caption");
   els.visionCopy = document.querySelector("#vision-copy");
+  els.visionFullRow = document.querySelector("#vision-full-row");
   els.visionConfidence = document.querySelector("#vision-confidence");
   els.researchDepth = document.querySelector("#research-depth");
   els.planTabs = document.querySelector("#plan-tabs");
@@ -383,6 +421,14 @@ function applyIdleState() {
   els.visionConfidence.textContent = "standby";
   els.visionConfidence.className = "confidence-chip is-quiet";
   renderVisionSkeleton();
+  // Baseline capacity chart so the panel isn't empty before the first run.
+  const baselineCapRows = state.data.capacity.baseline.map((row, i) => ({
+    label: row.label,
+    value: row.value,                                      // current = baseline
+    baseline: row.value,                                   // baseline-line same as value
+    dataSource: "mock"
+  }));
+  renderCapacityChart(baselineCapRows, "fallback", "");
   els.researchDepth.textContent = "queued";
   els.researchDepth.className = "confidence-chip is-quiet";
   els.metricsEyebrow.textContent = "Baseline today";
@@ -398,8 +444,13 @@ function applyIdleState() {
   state.runId = null;
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.visionFullText = null;
+  state.cuoptBackgroundBashId = null;
+  state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
+  state.planReportRaw = null;
+  state.planFullReportOpen = true;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
@@ -643,6 +694,148 @@ function renderMetrics(phase) {
   }).join("");
 }
 
+function renderMetricsSkeleton() {
+  // 4 empty rows with pulsing bar-fills. Matches the structure of renderMetrics
+  // so animateMetricBars can find .metric-row .bar-fill and tween them.
+  const rows = [0, 1, 2, 3].map((ix) => `
+    <div class="metric-row is-skeleton" data-row="${ix}">
+      <div class="metric-label">
+        <div class="metric-label-row">
+          <span class="skel-line"></span>
+          <strong class="skel-line short"></strong>
+        </div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill is-pulsing" style="width: 0%"></div>
+      </div>
+    </div>
+  `).join("");
+  els.metricBars.innerHTML = rows;
+  els.metricBars.classList.add("is-skeleton");
+  els.metricsEyebrow.textContent = "Solving…";
+}
+
+function animateMetricBars(fromRows, toRows) {
+  // If the DOM doesn't currently hold 4 .metric-row elements (e.g. coming out
+  // of skeleton or first run), re-render the structure now. We do this in
+  // baseline state so animateMetricBars can tween from there.
+  if (els.metricBars.querySelectorAll(".metric-row").length !== 4 ||
+      els.metricBars.classList.contains("is-skeleton")) {
+    renderMetrics("baseline");
+  }
+  els.metricBars.classList.remove("is-skeleton");
+  els.metricBars.classList.remove("is-baseline");
+  els.metricBars.classList.add("is-optimized");
+
+  const rowEls = els.metricBars.querySelectorAll(".metric-row");
+  toRows.forEach((target, ix) => {
+    const li = rowEls[ix];
+    if (!li) return;
+    const fill = li.querySelector(".bar-fill");
+    const fromVal = fromRows[ix].value;
+    const toVal = target.value;
+    if (fill) {
+      tween({
+        from: fromVal, to: toVal, duration: 900, easing: easeOutCubic,
+        key: `metric-bar-${ix}`,
+        onUpdate: (v) => { fill.style.width = v + "%"; }
+      });
+    }
+    // After the bar tween starts, swap in the new display string + delta chip
+    // with a small fade so the text doesn't pop while the bar is still moving.
+    const labelStrong = li.querySelector(".metric-label-row strong");
+    if (labelStrong) {
+      labelStrong.style.opacity = "0";
+      setTimeout(() => {
+        labelStrong.textContent = target.display;
+        labelStrong.style.opacity = "1";
+      }, 250);
+    }
+    // Delta chip lives under .metric-label as .metric-delta. Insert or update.
+    const labelBlock = li.querySelector(".metric-label");
+    let delta = labelBlock.querySelector(".metric-delta");
+    if (target.delta) {
+      if (!delta) {
+        delta = document.createElement("span");
+        delta.className = "metric-delta";
+        labelBlock.appendChild(delta);
+      }
+      delta.style.opacity = "0";
+      setTimeout(() => {
+        delta.textContent = target.delta;
+        delta.style.opacity = "1";
+      }, 300);
+    }
+    // Visual hint that this row's value came from a fallback rather than the
+    // envelope. CSS uses [data-source="mock"] to tint the bar slightly.
+    li.setAttribute("data-source", target.dataSource || "envelope");
+  });
+}
+
+function renderCapacitySkeleton() {
+  const rows = [0, 1, 2, 3, 4, 5, 6].map((ix) => `
+    <div class="capacity-row is-skeleton" role="listitem" data-row="${ix}">
+      <span class="capacity-label">…</span>
+      <div class="capacity-track">
+        <div class="capacity-fill-baseline" style="--baseline-pct: 0%"></div>
+        <div class="capacity-fill-optimized" style="--optimized-pct: 0%"></div>
+      </div>
+      <span class="capacity-delta">—</span>
+    </div>
+  `).join("");
+  els.capacityBars.innerHTML = rows;
+  els.capacityExplanation.hidden = true;
+  els.capacitySource.className = "confidence-chip is-quiet";
+  els.capacitySource.textContent = "solving…";
+}
+
+function renderCapacityChart(rows, status, explanation) {
+  const chipText = status === "solved" ? "from cuOpt"
+                  : status === "infeasible" ? "cuOpt partial"
+                  : "reference plan";
+  const chipClass = status === "solved" ? "confidence-chip"
+                   : status === "infeasible" ? "confidence-chip is-warn"
+                   : "confidence-chip is-quiet";
+  els.capacitySource.className = chipClass;
+  els.capacitySource.textContent = chipText;
+
+  els.capacityBars.innerHTML = rows.map((row) => {
+    const delta = row.value - row.baseline;
+    // Buffer is the only node where a positive delta (higher utilization) is good.
+    const isBuffer = row.label === "Buffer";
+    const deltaClass = isBuffer && delta > 0 ? "capacity-delta is-buffer-positive"
+                      : "capacity-delta";
+    const deltaText = delta === 0 ? "—"
+                     : (delta < 0 ? "−" : "+") + Math.abs(delta);
+    return `
+      <div class="capacity-row" role="listitem" data-source="${escapeHtml(row.dataSource)}" data-node="${escapeHtml(row.label)}">
+        <span class="capacity-label">${escapeHtml(row.label)}</span>
+        <div class="capacity-track">
+          <div class="capacity-fill-baseline" style="--baseline-pct: ${row.baseline}%"></div>
+          <div class="capacity-fill-optimized" style="--optimized-pct: 0%"></div>
+        </div>
+        <span class="${deltaClass}">${escapeHtml(deltaText)}</span>
+      </div>
+    `;
+  }).join("");
+
+  // Trigger the optimized-fill animation with a one-frame delay so the
+  // browser commits the initial 0% width before transitioning to the target.
+  requestAnimationFrame(() => {
+    els.capacityBars.querySelectorAll(".capacity-row").forEach((el, ix) => {
+      const opt = el.querySelector(".capacity-fill-optimized");
+      if (opt) opt.style.setProperty("--optimized-pct", rows[ix].value + "%");
+    });
+  });
+
+  if (explanation) {
+    els.capacityExplanation.textContent = explanation;
+    els.capacityExplanation.hidden = false;
+  } else {
+    els.capacityExplanation.hidden = true;
+  }
+}
+
 function toBrowserImageUrl(hostPath) {
   if (!hostPath) return null;
   if (hostPath.startsWith("/tmp/uploads/")) {
@@ -732,6 +925,10 @@ function renderVisionSkeleton() {
       <div class="skel bullet c"></div>
     </div>
   `;
+  if (els.visionFullRow) {
+    els.visionFullRow.innerHTML = "";
+    els.visionFullRow.hidden = true;
+  }
 }
 
 function renderPlanResearching(fillPct) {
@@ -800,9 +997,26 @@ function buildPlanBodyHtml() {
     body = formatPlanText(state.planTextAccumulator);
   }
 
+  // Surface the full aiq.py report below the curated synthesis. This is the
+  // evidence layer: tabs show the agent's 4-paragraph summary, and the
+  // details element exposes the underlying research body with citations.
+  // Only render when we have the raw report AND the section UI is already
+  // showing the synthesis (otherwise the full content is the main render).
+  // The open/closed state is persisted in state.planFullReportOpen so it
+  // survives tab switches (same report on every tab — toggle once).
+  const fullReportBlock = (state.planReportRaw && state.planSections && state.planSections[state.activePlan])
+    ? `
+      <details class="plan-full-report"${state.planFullReportOpen ? " open" : ""}>
+        <summary>Full research report (${state.planReportRaw.length.toLocaleString()} chars)</summary>
+        <div class="plan-full-report-body">${formatPlanText(state.planReportRaw)}</div>
+      </details>
+    `
+    : "";
+
   return `
     <p class="plan-prefix"><strong>${escapeHtml(prefix)}:</strong></p>
     <div class="plan-live-body">${body}</div>
+    ${fullReportBlock}
   `;
 }
 
@@ -816,6 +1030,17 @@ function wirePlanJumpButtons(scope) {
   });
 }
 
+function wirePlanFullReportToggle(scope) {
+  // The <details> element is recreated each renderPlanLive (innerHTML rewrite
+  // destroys listeners), so we reattach the toggle handler every render. The
+  // user's open/closed choice persists in state.planFullReportOpen.
+  const details = scope.querySelector(".plan-full-report");
+  if (!details) return;
+  details.addEventListener("toggle", () => {
+    state.planFullReportOpen = details.open;
+  });
+}
+
 function renderPlanLive() {
   if (!state.planTextAccumulator) {
     renderPlanSkeleton();
@@ -824,6 +1049,7 @@ function renderPlanLive() {
   const html = buildPlanBodyHtml();
   els.planBody.innerHTML = html;
   wirePlanJumpButtons(els.planBody);
+  wirePlanFullReportToggle(els.planBody);
 }
 
 function formatPlanText(text) {
@@ -997,8 +1223,13 @@ function applyRunIdleSlate() {
   els.console.innerHTML = "";
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.visionFullText = null;
+  state.cuoptBackgroundBashId = null;
+  state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
+  state.planReportRaw = null;
+  state.planFullReportOpen = true;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
@@ -1107,6 +1338,47 @@ function fireBeat(beat) {
   }
 }
 
+function applyCuoptResult(result) {
+  if (state.cuoptResolved) return;         // idempotent commit
+  state.cuoptResolved = true;
+
+  const ui = result.status === "fallback"
+    ? mockToUiValues(state.data)
+    : cuoptEnvelopeToUiValues(result.envelope, state.data);
+
+  // Metric bars: animate baseline → ui.metricRows
+  animateMetricBars(state.data.metrics.baseline, ui.metricRows);
+
+  // Capacity chart
+  renderCapacityChart(ui.capacityRows, ui.status, ui.explanation);
+
+  // Map state + supporting routes (reveal-supports delayed so the active
+  // route's CSS transition lands first)
+  setMapStatus("solved");
+  applyMapRoute("reveal-active");
+  applyMapRoute("fade-baseline");
+  setTimeout(() => applyMapRoute("reveal-supports"), 200);
+
+  // Score
+  const penalty = CUOPT_SCORE_PENALTY[result.status] ?? CUOPT_SCORE_PENALTY.fallback;
+  const targetScore = state.optimizedScore - penalty;
+  animateScore(state.currentScore, Math.max(state.currentScore, targetScore), 1400);
+
+  // Stage and copy
+  setStageSubstate("cuopt", "done");
+  els.metricsEyebrow.textContent = "Optimized";
+
+  if (result.status === "fallback") {
+    showToast("warn", `cuOpt returned no usable data (${result.reason}) — showing reference plan.`);
+    addConsoleEntry("cuopt", `cuOpt fallback (${result.reason}). Reference plan shown.`);
+  } else if (result.status === "infeasible") {
+    showToast("warn", "cuOpt returned a best-effort infeasible solution.");
+    addConsoleEntry("cuopt", `cuOpt: ${result.envelope.explanation || "infeasible"}`);
+  } else {
+    addConsoleEntry("cuopt", `cuOpt: ${result.envelope.explanation || "solved"}`);
+  }
+}
+
 function handleAssistantText({ stage, text }) {
   if (!text) return;
 
@@ -1138,7 +1410,13 @@ function handleAssistantText({ stage, text }) {
 }
 
 function handleToolInvoked({ id, name, input, stage }) {
-  if (stage === "vision") {
+  if (stage === "cuopt") {
+    setStageSubstate("cuopt", "calling");
+    applyMapRoute("shimmer");
+    setMapStatus("solving");
+    renderMetricsSkeleton();
+    renderCapacitySkeleton();
+  } else if (stage === "vision") {
     setStageSubstate("vision", "calling");
     els.visionConfidence.textContent = "analyzing";
     els.visionConfidence.className = "confidence-chip is-analyzing";
@@ -1156,8 +1434,6 @@ function handleToolInvoked({ id, name, input, stage }) {
       finalizeVisionDone();
       state.visionBackgroundBashId = null;
     }
-  } else if (state.stageState.cuopt === "idle" && stage === "general") {
-    /* leave cuopt idle for skipping later */
   }
   const skillId = matchSkill(name, input);
   if (skillId) markSkillCalled(skillId);
@@ -1178,6 +1454,34 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     addConsoleEntry(stage || "general", `Tool ${name || ""} failed · expand entry for stderr.`);
   }
 
+  if (stage === "cuopt") {
+    if (state.cuoptResolved) {
+      addConsoleEntry("cuopt", "cuopt completed again — ignoring duplicate.");
+      return;
+    }
+    const cleaned = (stdout || "").trim();
+    const bgMatch = cleaned.match(/Command running in background with ID:\s*([\w-]+)/i);
+    if (bgMatch && !isError) {
+      state.cuoptBackgroundBashId = bgMatch[1];
+      setStageSubstate("cuopt", "streaming");
+      addConsoleEntry("cuopt", `cuopt backgrounded by harness (bash id ${bgMatch[1].slice(0,8)}). Waiting for output…`);
+      return;
+    }
+    const result = parseCuoptToolOutput(stdout, isError);
+    applyCuoptResult(result);
+    return;
+  }
+
+  // Layer 3: cuopt sat in the background; look for its real output in any
+  // subsequent tool result. Mirrors the vision background-capture pattern.
+  if (state.cuoptBackgroundBashId && !isError && stage !== "cuopt" &&
+      !state.cuoptResolved && looksLikeCuoptResult(stdout)) {
+    const result = parseCuoptToolOutput(stdout, false);
+    applyCuoptResult(result);
+    state.cuoptBackgroundBashId = null;
+    addConsoleEntry("cuopt", "Captured backgrounded cuopt output.");
+  }
+
   if (stage === "vision" && !isError) {
     const cleaned = (stdout || "").trim();
     // Layer 2: when the agent invokes vision_analyze.py with run_in_background:
@@ -1194,6 +1498,7 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
       if (cleaned) {
         const summary = extractVisionSummary(cleaned);
         state.visionTextAccumulator = summary;
+        state.visionFullText = cleaned;        // preserve the full Nemotron output
         updateVisionCopy(summary);
       }
       finalizeVisionDone();
@@ -1209,6 +1514,7 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     const summary = extractVisionSummary(stdout);
     if (summary) {
       state.visionTextAccumulator = summary;
+      state.visionFullText = (stdout || "").trim();
       updateVisionCopy(summary);
       finalizeVisionDone();
       state.visionBackgroundBashId = null;
@@ -1258,8 +1564,19 @@ function parseAiqToolOutput(stdout, _name, isError) {
   }
 
   // ---- Path 1: structured JSON (research command, primary path) ----
+  // aiq.py prints a WARNING about AIQ_INSECURE + status-update lines to stderr,
+  // and the harness's Bash tool typically merges stderr into the stdout buffer
+  // we receive. So the JSON envelope often comes AFTER non-JSON preamble. Try
+  // parsing the whole thing first (clean case), then fall back to slicing from
+  // the first `{`.
   let obj = null;
   try { obj = JSON.parse(trimmed); } catch (_) { /* fall through */ }
+  if (!obj) {
+    const firstBrace = trimmed.indexOf("{");
+    if (firstBrace > 0) {
+      try { obj = JSON.parse(trimmed.slice(firstBrace)); } catch (_) { /* still no JSON */ }
+    }
+  }
   if (obj && typeof obj === "object") {
     const status = (obj.status || obj.job_status?.status || "").toString().toLowerCase();
 
@@ -1285,6 +1602,7 @@ function parseAiqToolOutput(stdout, _name, isError) {
     // so probe common locations.
     const content = findReportContent(obj);
     if (content && content.length > 80) {
+      state.planReportRaw = content;             // keep the original aiq.py report verbatim
       state.planTextAccumulator = content;
       state.planSections = parsePlanSections(content);
       renderPlanLive();
@@ -1325,6 +1643,7 @@ function parseAiqToolOutput(stdout, _name, isError) {
   if (contentMatch) {
     const decoded = jsonStringDecode(contentMatch[1]);
     if (decoded.length > 80) {
+      state.planReportRaw = decoded;
       state.planTextAccumulator = decoded;
       state.planSections = parsePlanSections(decoded);
       renderPlanLive();
@@ -1511,14 +1830,47 @@ function jsonStringDecode(s) {
 function updateVisionCopy(text) {
   if (!text) return;
   const trimmed = text.trim();
+
+  // The summary lives inside #vision-copy (the right column of .vision-body's
+  // image|text grid). The full-analysis <details> lives in #vision-full-row,
+  // a separate full-width row BELOW .vision-body — otherwise expanding it
+  // stretches the right column, which (with align-items: stretch) forces the
+  // image column tall and the image goes out of aspect ratio.
+  // extractVisionSummary returns one section (usually Insights ~800 chars),
+  // but vision_analyze.py emits much more (numbered chart-reading sections,
+  // observations, recommendations). Surface the full text so the audience can dig in.
+  const fullText = state.visionFullText && state.visionFullText !== trimmed
+    ? state.visionFullText
+    : null;
+
+  els.visionCopy.innerHTML = `<div class="vision-summary"></div>`;
+  const summaryEl = els.visionCopy.querySelector(".vision-summary");
+
+  if (els.visionFullRow) {
+    if (fullText) {
+      els.visionFullRow.innerHTML = `
+        <details class="vision-full-details" open>
+          <summary>Full analysis (${fullText.length.toLocaleString()} chars)</summary>
+          <pre class="vision-full-body"></pre>
+        </details>
+      `;
+      const fullBodyEl = els.visionFullRow.querySelector(".vision-full-body");
+      if (fullBodyEl) fullBodyEl.textContent = fullText;   // <pre>+textContent preserves tables/markdown
+      els.visionFullRow.hidden = false;
+    } else {
+      els.visionFullRow.innerHTML = "";
+      els.visionFullRow.hidden = true;
+    }
+  }
+
   if (REDUCED_MOTION || state.hasInitializedVisionTypewriter) {
-    els.visionCopy.textContent = trimmed;
+    summaryEl.textContent = trimmed;
   } else {
     state.hasInitializedVisionTypewriter = true;
     // Scale speed with length so a longer Insights extraction doesn't take 30s.
     // 40 cps was fine for the old 500-char hard slice; bump for longer text.
     const cps = trimmed.length > 600 ? 120 : 60;
-    typewrite(els.visionCopy, trimmed, cps);
+    typewrite(summaryEl, trimmed, cps);
   }
 }
 
@@ -1660,6 +2012,17 @@ function formatDuration(ms) {
  * ============================================================ */
 
 function setStageSubstate(stage, substate) {
+  // If vision or AIQ starts before cuopt was ever invoked, treat that as
+  // an implicit "cuopt was skipped" signal and fire the fallback path so
+  // the audience still sees baseline → optimized for Stage 2.
+  if ((stage === "vision" || stage === "aiq") &&
+      (substate === "calling" || substate === "streaming") &&
+      state.stageState.cuopt === "idle" &&
+      !state.cuoptResolved) {
+    applyCuoptResult({ status: "fallback", reason: "not_invoked" });
+    // applyCuoptResult sets state.cuoptResolved itself.
+  }
+
   state.stageState[stage] = substate;
   if (substate === "calling" || substate === "streaming") {
     autoAdvance(stage);
@@ -1806,6 +2169,18 @@ function finishRun(data) {
   if (!state.running && state.completed) return;
   state.running = false;
   state.completed = true;
+
+  // Safety-net: if the run completed while cuopt was still streaming (e.g. the
+  // harness backgrounded the call and never surfaced the real output), or if
+  // the agent never called cuopt at all, fire the fallback now so the UI
+  // doesn't end on a skeleton or a "skipped" rail pip.
+  if (!state.cuoptResolved) {
+    applyCuoptResult({
+      status: "fallback",
+      reason: state.cuoptBackgroundBashId ? "background_timeout" : "not_invoked"
+    });
+  }
+
   const elapsedMs = performance.now() - state.runStartedAt;
   const elapsedSec = (elapsedMs / 1000).toFixed(1);
 
@@ -2074,7 +2449,10 @@ function showToast(level, text, timeoutMs = 6000) {
   const stack = els.toastStack;
   if (!stack) return;
   const toast = document.createElement("div");
-  toast.className = "toast " + (level === "error" ? "is-error" : "is-info");
+  const cls = level === "error" ? "is-error"
+            : level === "warn"  ? "is-warn"
+            : "is-info";
+  toast.className = "toast " + cls;
   toast.textContent = text;
   stack.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add("is-visible"));

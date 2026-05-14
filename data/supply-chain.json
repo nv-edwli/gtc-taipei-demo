@@ -31,6 +31,8 @@
     "completeWithDuration": "Complete · {duration}s"
   },
   "skillMap": {
+    "taiwan_supply_chain": "cuopt",
+    "cuopt.result": "cuopt",
     "vision_analyze.py": "vision",
     "aiq.py": "aiq"
   },

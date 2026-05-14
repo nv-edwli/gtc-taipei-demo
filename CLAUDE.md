@@ -73,19 +73,24 @@ These are exposed in the system prime. Call them directly via the harness's Bash
   - Auth uses NVAuth when a token is present at `$HOME/.aiq/tokens/nvauth_token` (0600) or in the `AIQ_NVAUTH_TOKEN` env var; otherwise falls back to Starfleet OAuth. NVAuth is required because the AIQ backend gates ECI / enterprise-data lookups on it. Token tokens are minted at <https://nv-auth.nvidia.com/tokens> with duration ≤ 24h (or longer for service accounts). The orchestrator syncs the host token file into `/sandbox/.aiq/tokens/` on startup; if you rotate the token, drop the new one into `~/.aiq/tokens/nvauth_token` and restart `npm start`.
 - `python3 skills/aiq-research/scripts/aiq.py research "<query>" shallow_researcher` — shallow research, submits an async job and polls server-side; final report JSON is printed on stdout when the job completes (typically 20–60s). The `shallow_researcher` argument is **mandatory** — it forces the explicit-agent-type code path and sidesteps `/chat`'s auto-router (which sometimes promotes broad queries to deep research). **Never** use `aiq.py chat`, `submit`, `research_poll`, or `report` from inside a demo run, and never pass `deep_researcher` as the agent type. The orchestrator still defensively recognises a `{"status":"deep_research_running",...}` response and surfaces it as an error.
 
-The cuOpt skill is currently mocked through `data/supply-chain.json`. The contract for the live version lives at `skills/cuopt/contract.md`; the broader sub-skill bundle is under `skills/cuopt/`.
+- `python3 skills/cuopt/cuopt-server-api-python/assets/taiwan_supply_chain/run.py` — runs the Taiwan supply-chain solve against the local cuOpt REST server at `host.openshell.internal:8002`. Prints a JSON envelope `{kind:"cuopt.result", status, selected_lanes, metrics, capacity, explanation}` on stdout. Typical runtime 2–15s. Exit codes 2 (request failed), 3 (poll timeout), 4 (solver non-success) all still print a usable envelope on stdout where they can.
+
+The frontend parses the cuOpt envelope client-side via `parseCuoptToolOutput` in `app-cuopt.mjs`. On any failure (script exit, parse failure, infeasible solve, agent skipped) the UI silently falls back to the reference plan in `data/supply-chain.json` and surfaces a warn toast — the demo never dead-ends on cuopt. See `skills/cuopt/contract.md` for the envelope schema and the broader sub-skill bundle under `skills/cuopt/`.
 
 ## Event contract (frontend ↔ orchestrator)
 
-The orchestrator writes NDJSON beats of the form `{ "kind": "...", "data": {...} }`. Notable kinds:
+The orchestrator writes NDJSON beats of the form `{ "kind": "...", "data": {...} }`. Emitted kinds:
 
 - `surface.info` — which surface was chosen and why.
 - `run.registered` — runId, harness, surface, cmd.
-- `stage.started`, `stage.progress`, `artifact.created`, `stage.completed` — synthesized by the per-harness normalizer.
-- `log` — surfaced stderr / non-JSON lines.
+- `run.started` — synthesized by the harness normalizer on first `init`/`thread.started` event.
+- `tool.invoked` — synthesized when the harness begins a tool call; carries `{ id, name, input, stage }`. `stage` is one of `"cuopt"`, `"vision"`, `"aiq"`, or `"general"` (the normalizer infers it from the tool input).
+- `tool.completed` — synthesized when the harness returns a tool result; carries `{ id, name, stage, stdout, stderr, isError, durationMs }`.
+- `assistant.text` — synthesized for any free-text assistant message.
+- `log` — surfaced stderr / non-JSON lines; level ∈ `"warn"`, `"stderr"`, `"info"`, `"debug"`.
 - `run.completed`, `run.failed`, `run.cancelled` — terminal beats. Exactly one is emitted per run.
 
-`docs/integration-plan.md` documents the longer-term event types (`stage.*`, `run.*`) that the UI is designed around. Preserve those names when extending.
+Stage transitions on the frontend are derived from `tool.invoked` / `tool.completed` beats — there is no explicit `stage.*` event from the orchestrator. See `docs/integration-plan.md` for how to add a new stage.
 
 ## Editing rules of thumb
 
@@ -101,6 +106,7 @@ The orchestrator writes NDJSON beats of the form `{ "kind": "...", "data": {...}
 - Do not call `aiq.py chat`, `login`, `submit`, `research_poll`, `status`, or `report` from inside a demo run. Only `aiq.py research "<query>" shallow_researcher` is allowed for AIQ research calls.
 - Do not commit anything that would belong in `.env` or under `node_modules/`.
 - Do not change the `/api/run` NDJSON shape without updating both normalizers and the frontend reader in lockstep.
+- Do not silently rename or remove cuOpt envelope fields without updating `app-cuopt.mjs:cuoptEnvelopeToUiValues` AND the smoke-test assertion list in `scripts/check.mjs`.
 
 ## Pointers
 
