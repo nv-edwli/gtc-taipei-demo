@@ -586,7 +586,10 @@ function setPromptView(mode) {
   // mode: "editable" | "summary"
   if (mode === "summary") {
     const text = (els.promptInput.value || "").trim();
-    els.promptSummaryText.textContent = truncate(text, 360) || "(no brief submitted)";
+    // Show the full submitted prompt — the terminal-submitted container is
+    // full-height with pre-wrap text, so long briefs render legibly. The old
+    // truncate-to-360 was for the compact pre-terminal summary view.
+    els.promptSummaryText.textContent = text || "(no brief submitted)";
     if (state.attachedImageState !== "none" && state.attachedImageLabel) {
       els.promptSummaryAttached.textContent = state.attachedImageLabel;
       els.promptSummaryAttached.hidden = false;
