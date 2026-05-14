@@ -168,6 +168,10 @@ async function boot() {
   const stored = (typeof sessionStorage !== "undefined") && sessionStorage.getItem(PROMPT_STORAGE_KEY);
   if (stored) els.promptInput.value = stored;
 
+  if (els.promptZone) {
+    els.promptZone.dataset.hasInput = els.promptInput.value.trim() ? "true" : "false";
+  }
+
   renderAll();
   applyIdleState();
 
@@ -315,6 +319,9 @@ function wireEvents() {
   els.promptInput.addEventListener("input", () => {
     try { sessionStorage.setItem(PROMPT_STORAGE_KEY, els.promptInput.value); } catch (_) {}
     clearPromptError();
+    if (els.promptZone) {
+      els.promptZone.dataset.hasInput = els.promptInput.value.trim() ? "true" : "false";
+    }
   });
 
   els.promptAttachInput.addEventListener("change", async (e) => {
