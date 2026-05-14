@@ -1618,6 +1618,13 @@ body.is-run-complete .plan-panel {
 
 /* ---------- Expand-full-content details (AIQ + Vision) ---------- */
 
+/* Full-width row below .vision-body that holds the expanded analysis. Lives
+   outside the image|text grid so expanding it doesn't stretch the image
+   column out of aspect ratio. Side padding matches .vision-body's 18px. */
+.vision-full-row {
+  padding: 0 18px 18px;
+}
+
 .vision-summary {
   min-height: 72px;
 }

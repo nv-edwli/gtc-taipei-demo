@@ -238,6 +238,7 @@ function collectEls() {
   els.visionImageWrap = document.querySelector(".vision-image-wrap");
   els.visionImageCaption = document.querySelector("#vision-image-caption");
   els.visionCopy = document.querySelector("#vision-copy");
+  els.visionFullRow = document.querySelector("#vision-full-row");
   els.visionConfidence = document.querySelector("#vision-confidence");
   els.researchDepth = document.querySelector("#research-depth");
   els.planTabs = document.querySelector("#plan-tabs");
@@ -924,6 +925,10 @@ function renderVisionSkeleton() {
       <div class="skel bullet c"></div>
     </div>
   `;
+  if (els.visionFullRow) {
+    els.visionFullRow.innerHTML = "";
+    els.visionFullRow.hidden = true;
+  }
 }
 
 function renderPlanResearching(fillPct) {
@@ -1826,26 +1831,36 @@ function updateVisionCopy(text) {
   if (!text) return;
   const trimmed = text.trim();
 
-  // Build the panel structure: curated summary block on top, optional full-analysis
-  // details below. extractVisionSummary returns one section (usually Insights ~800
-  // chars), but vision_analyze.py emits much more (numbered chart-reading sections,
+  // The summary lives inside #vision-copy (the right column of .vision-body's
+  // image|text grid). The full-analysis <details> lives in #vision-full-row,
+  // a separate full-width row BELOW .vision-body — otherwise expanding it
+  // stretches the right column, which (with align-items: stretch) forces the
+  // image column tall and the image goes out of aspect ratio.
+  // extractVisionSummary returns one section (usually Insights ~800 chars),
+  // but vision_analyze.py emits much more (numbered chart-reading sections,
   // observations, recommendations). Surface the full text so the audience can dig in.
   const fullText = state.visionFullText && state.visionFullText !== trimmed
     ? state.visionFullText
     : null;
-  els.visionCopy.innerHTML = `
-    <div class="vision-summary"></div>
-    ${fullText ? `
-      <details class="vision-full-details">
-        <summary>Show full analysis (${fullText.length.toLocaleString()} chars)</summary>
-        <pre class="vision-full-body"></pre>
-      </details>
-    ` : ""}
-  `;
+
+  els.visionCopy.innerHTML = `<div class="vision-summary"></div>`;
   const summaryEl = els.visionCopy.querySelector(".vision-summary");
-  const fullBodyEl = els.visionCopy.querySelector(".vision-full-body");
-  if (fullBodyEl && fullText) {
-    fullBodyEl.textContent = fullText;        // <pre> + textContent preserves tables, markdown, line breaks
+
+  if (els.visionFullRow) {
+    if (fullText) {
+      els.visionFullRow.innerHTML = `
+        <details class="vision-full-details" open>
+          <summary>Full analysis (${fullText.length.toLocaleString()} chars)</summary>
+          <pre class="vision-full-body"></pre>
+        </details>
+      `;
+      const fullBodyEl = els.visionFullRow.querySelector(".vision-full-body");
+      if (fullBodyEl) fullBodyEl.textContent = fullText;   // <pre>+textContent preserves tables/markdown
+      els.visionFullRow.hidden = false;
+    } else {
+      els.visionFullRow.innerHTML = "";
+      els.visionFullRow.hidden = true;
+    }
   }
 
   if (REDUCED_MOTION || state.hasInitializedVisionTypewriter) {
