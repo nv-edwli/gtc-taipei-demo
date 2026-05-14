@@ -136,10 +136,10 @@
 
                 <footer class="terminal-footer">
                   <label class="terminal-action" for="prompt-attach-input">
-                    <span class="terminal-action-glyph" aria-hidden="true">↳</span> attach image
+                    <span aria-hidden="true">↳</span> attach image
                   </label>
                   <input type="file" id="prompt-attach-input" accept="image/png,image/jpeg,image/webp" hidden>
-                  <button class="terminal-action" type="button" id="prompt-reset-sample">↺ reset to sample</button>
+                  <button class="terminal-action" type="button" id="prompt-reset-sample"><span aria-hidden="true">↺</span> reset to sample</button>
                   <span class="terminal-keys"><kbd>shift</kbd>+<kbd>↵</kbd> newline · <kbd>↵</kbd> send</span>
                   <p class="prompt-error terminal-error" id="prompt-error" role="alert" hidden></p>
                 </footer>
@@ -152,7 +152,7 @@
                 </div>
                 <div class="terminal-submitted-meta">
                   <span class="prompt-summary-attached" id="prompt-summary-attached"></span>
-                  <button class="ghost-action prompt-edit-button" type="button" id="prompt-edit-button">↺ edit</button>
+                  <button class="ghost-action prompt-edit-button" type="button" id="prompt-edit-button"><span aria-hidden="true">↺</span> edit</button>
                 </div>
               </div>
             </article>
