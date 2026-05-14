@@ -767,21 +767,29 @@ main.cockpit {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Side-by-side layouts on the two stages where two panels share the canvas.
-   DOM order keeps the panels in their intended slots:
-     brief  → [prompt | map]      50/50 — both panels are co-equal
-     cuopt  → [map    | metrics]  map favored — the optimized network is the headline
-   align-items: stretch makes the two panels match heights.
-   Collapses to a single stacked column below 1280px (narrow viewports). */
+/* Side-by-side layout for the cuopt stage (map + metrics share the canvas).
+   The brief stage used to have [prompt | map] at 50/50, but the map was
+   removed in the terminal-prompt feature, so brief stays single-column and
+   the terminal fills the available width on all viewport sizes.
+     cuopt  → [map | metrics]  map favored — the optimized network is the headline
+   align-items: stretch makes the two cuopt panels match heights. */
 @media (min-width: 1280px) {
-  main.cockpit[data-active-stage="brief"] .cockpit-canvas {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: stretch;
-  }
   main.cockpit[data-active-stage="cuopt"] .cockpit-canvas {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     align-items: stretch;
   }
+}
+
+/* Brief stage: stretch the canvas's grid row so the terminal pane fills the
+   available vertical space. canvas-brief becomes a flex column so the
+   .terminal-panel inside can flex-fill end-to-end. */
+main.cockpit[data-active-stage="brief"] .cockpit-canvas {
+  align-content: stretch;
+}
+main.cockpit[data-active-stage="brief"] #canvas-brief {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Stage-canvas visibility is driven by main.cockpit[data-active-stage]. */
@@ -2434,6 +2442,12 @@ body.is-run-complete .plan-panel {
   background: var(--term-bg);
   border: 1px solid var(--term-border);
   overflow: hidden;
+  /* Flex column so the body (or the submitted-state) can flex-fill the
+     vertical space when the brief canvas stretches to fill the cockpit row. */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .terminal-titlebar {
@@ -2477,6 +2491,12 @@ body.is-run-complete .plan-panel {
 .terminal-body {
   padding: 16px 18px;
   font-family: var(--term-mono);
+  /* Flex column inside the panel; the prompt-row flex-grows so the textarea
+     can fill the available vertical space, and the footer stays at the bottom. */
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .terminal-attached {
@@ -2505,8 +2525,12 @@ body.is-run-complete .plan-panel {
 .terminal-prompt-row {
   display: grid;
   grid-template-columns: auto 1fr;
-  align-items: start;
+  align-items: stretch;
   gap: 8px;
+  /* Take the leftover space inside .terminal-body so the textarea has room
+     to grow vertically up to the footer. */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .terminal-prompt-glyph {
   font-size: 1.05rem;
@@ -2517,7 +2541,8 @@ body.is-run-complete .plan-panel {
 }
 .terminal-input {
   width: 100%;
-  min-height: 4.2em;
+  height: 100%;                     /* fill the prompt-row's vertical space */
+  min-height: 4.2em;                /* floor so it stays usable at small viewports */
   resize: vertical;
   border: 0;
   background: transparent;
@@ -2601,6 +2626,13 @@ body.is-run-complete .plan-panel {
   padding: 14px 18px;
   font-family: var(--term-mono);
   color: var(--term-ink);
+  /* Match .terminal-body's fill behavior so the submitted view occupies the
+     same area when it replaces the edit view post-Run. */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .terminal-submitted-line {
   display: grid;
