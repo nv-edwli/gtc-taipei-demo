@@ -323,7 +323,7 @@ function wireEvents() {
     e.target.value = "";  // reset so the same file can be re-selected
   });
 
-  els.promptResetSample.addEventListener("click", () => resetSampleImage());
+  els.promptResetSample.addEventListener("click", () => resetToSample());
 
   els.promptAttachedClear.addEventListener("click", () => {
     if (state.attachedImageState === "sample") {
@@ -2359,6 +2359,20 @@ function resetSampleImage() {
   state.attachedImageState = "sample";
   renderAttachedChip();
   updateVisionImage();
+}
+
+async function resetToSample() {
+  // Reset the attached image to the bundled sample (existing behavior).
+  resetSampleImage();
+  // Clear the textarea + the sessionStorage draft + re-fetch the default prompt.
+  els.promptInput.value = "";
+  try { sessionStorage.removeItem(PROMPT_STORAGE_KEY); } catch (_) {}
+  await loadDefaultPrompt();
+  // Refresh the data-has-input attribute that drives the blinking caret (Task 6).
+  if (els.promptZone) {
+    els.promptZone.dataset.hasInput = els.promptInput.value.trim() ? "true" : "false";
+  }
+  clearPromptError();
 }
 
 function detachImage() {
