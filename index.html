@@ -278,8 +278,16 @@
               </div>
               <div class="vision-body">
                 <figure class="vision-image-wrap">
-                  <img id="vision-image" alt="Image being analyzed by Vision Insights" />
-                  <figcaption class="vision-image-caption" id="vision-image-caption">sample-capacity.png</figcaption>
+                  <img id="vision-image" alt="Image being analyzed by Vision Insights" hidden />
+                  <div class="vision-image-placeholder" id="vision-image-placeholder" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                      <circle cx="9" cy="10" r="1.5"></circle>
+                      <path d="M3 17l5-5 4 4 3-3 6 5"></path>
+                    </svg>
+                    <span>Awaiting image</span>
+                  </div>
+                  <figcaption class="vision-image-caption" id="vision-image-caption">no image attached</figcaption>
                 </figure>
                 <div class="insight-copy" id="vision-copy"></div>
               </div>

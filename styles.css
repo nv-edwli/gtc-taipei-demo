@@ -1598,6 +1598,40 @@ body.is-run-complete .plan-panel {
   object-fit: contain;
   background: #0c120c;
 }
+/* `#vision-image { display: block }` above outranks the UA `[hidden] { display: none }`
+   by ID-selector specificity, so the placeholder twin needs an explicit override. */
+#vision-image[hidden] { display: none; }
+
+.vision-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 180px;
+  padding: 28px 16px;
+  gap: 12px;
+  background: #0c120c;
+  color: rgba(245, 247, 242, 0.32);
+}
+.vision-image-placeholder[hidden] { display: none; }
+.vision-image-placeholder svg {
+  width: 48px;
+  height: 48px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
+}
+.vision-image-placeholder span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
 
 .vision-image-caption {
   padding: 6px 10px;

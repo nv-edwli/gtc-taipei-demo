@@ -246,6 +246,7 @@ function collectEls() {
   els.visionImage = document.querySelector("#vision-image");
   els.visionImageWrap = document.querySelector(".vision-image-wrap");
   els.visionImageCaption = document.querySelector("#vision-image-caption");
+  els.visionImagePlaceholder = document.querySelector("#vision-image-placeholder");
   els.visionCopy = document.querySelector("#vision-copy");
   els.visionFullRow = document.querySelector("#vision-full-row");
   els.visionConfidence = document.querySelector("#vision-confidence");
@@ -874,12 +875,18 @@ function updateVisionImage() {
       els.visionImage.setAttribute("src", url);
     }
     els.visionImage.removeAttribute("hidden");
+    if (els.visionImagePlaceholder) {
+      els.visionImagePlaceholder.setAttribute("hidden", "");
+    }
     if (els.visionImageCaption) {
       els.visionImageCaption.textContent = state.attachedImageLabel || "attached image";
     }
   } else {
     els.visionImage.removeAttribute("src");
     els.visionImage.setAttribute("hidden", "");
+    if (els.visionImagePlaceholder) {
+      els.visionImagePlaceholder.removeAttribute("hidden");
+    }
     if (els.visionImageCaption) {
       els.visionImageCaption.textContent = "no image attached";
     }
