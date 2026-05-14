@@ -1537,8 +1537,19 @@ function parseAiqToolOutput(stdout, _name, isError) {
   }
 
   // ---- Path 1: structured JSON (research command, primary path) ----
+  // aiq.py prints a WARNING about AIQ_INSECURE + status-update lines to stderr,
+  // and the harness's Bash tool typically merges stderr into the stdout buffer
+  // we receive. So the JSON envelope often comes AFTER non-JSON preamble. Try
+  // parsing the whole thing first (clean case), then fall back to slicing from
+  // the first `{`.
   let obj = null;
   try { obj = JSON.parse(trimmed); } catch (_) { /* fall through */ }
+  if (!obj) {
+    const firstBrace = trimmed.indexOf("{");
+    if (firstBrace > 0) {
+      try { obj = JSON.parse(trimmed.slice(firstBrace)); } catch (_) { /* still no JSON */ }
+    }
+  }
   if (obj && typeof obj === "object") {
     const status = (obj.status || obj.job_status?.status || "").toString().toLowerCase();
 
