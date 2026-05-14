@@ -2650,6 +2650,12 @@ body.is-run-complete .plan-panel {
   grid-template-columns: auto 1fr;
   gap: 8px;
   align-items: start;
+  /* Grow inside .terminal-submitted's flex column so the line area visually
+     matches the textarea's expanded height in edit state. The summary text
+     itself stays top-aligned via `align-items: start`; the extra height
+     reads as empty terminal space below the submitted prompt. */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .terminal-submitted-line .terminal-prompt-glyph { padding-top: 0; }
 .terminal-submitted-line .prompt-summary-text {
