@@ -1,11 +1,13 @@
-Research a business plan for an optimized Taiwan semiconductor supply chain.
+Solve the Taiwan semiconductor supply-chain scenario, then research a business plan around the optimized flow.
 
-Use the Vision Insights skill (vision_analyze.py) to interpret the attached capacity-utilization chart — note which nodes are still under pressure, where buffer capacity has opened up, and what the operator should watch.
+First call cuOpt (taiwan_supply_chain/run.py) to compute the optimized weekly lanes and per-node utilization for the 6-node corridor in skills/cuopt/contract.md.
 
-Then call the AIQ Research skill (aiq.py) to do deep research on:
+Then use Vision Insights (vision_analyze.py) to interpret the attached capacity-utilization chart against the cuOpt result — which nodes are still under pressure, where buffer capacity has opened up, what the operator should watch.
+
+Then call AIQ Research (aiq.py) to do deep research on:
 - competitive landscape for premium contract manufacturing routed through Taiwan
 - key feasibility risks (geopolitical, weather, supplier concentration)
 - buyer profile and go-to-market motions
 - a phased execution plan from pilot to production
 
-Stitch the visual interpretation and research findings into a single board-ready brief covering strategy, market, risk, and execution.
+Stitch the cuOpt numbers, the visual interpretation, and the research findings into a single board-ready brief covering strategy, market, risk, and execution.
