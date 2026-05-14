@@ -2780,6 +2780,106 @@ body.is-run-complete .plan-panel {
   font-style: italic;
 }
 
+/* Caret only appears in edit state. Scoped to .terminal-body so the
+   submitted-state glyph (inside .terminal-submitted) doesn't show a
+   stale blinking caret. */
+.terminal-body .terminal-prompt-glyph::after {
+  content: "▌";
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--term-caret);
+  animation: term-blink 1.05s steps(1, end) infinite;
+}
+.terminal-body:focus-within .terminal-prompt-glyph::after,
+.terminal-body[data-has-input="true"] .terminal-prompt-glyph::after {
+  display: none;
+}
+@keyframes term-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .terminal-body .terminal-prompt-glyph::after { animation: none; }
+}
+
+.terminal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--term-border);
+  font-size: 0.78rem;
+  color: var(--term-ink-dim);
+}
+.terminal-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--term-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--term-ink);
+  font-family: var(--term-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.terminal-action:hover { border-color: var(--accent); color: var(--accent); }
+.terminal-keys { margin-left: auto; }
+.terminal-keys kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--term-border);
+  border-radius: 3px;
+  font-family: var(--term-mono);
+  font-size: 0.72rem;
+  color: var(--term-ink);
+  background: var(--term-chrome);
+}
+.terminal-error {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  color: #ff8a7a;
+  font-size: 0.78rem;
+}
+
+.terminal-submitted {
+  background: var(--term-bg);
+  padding: 14px 18px;
+  font-family: var(--term-mono);
+  color: var(--term-ink);
+}
+.terminal-submitted-line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.terminal-submitted-line .terminal-prompt-glyph { padding-top: 0; }
+.terminal-submitted-line .prompt-summary-text {
+  margin: 0;
+  color: var(--term-ink);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.terminal-submitted-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--term-border);
+  font-size: 0.78rem;
+  color: var(--term-ink-dim);
+}
+.terminal-submitted-meta .prompt-summary-attached:not(:empty)::before {
+  content: "@";
+  margin-right: 4px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
 @media (max-width: 720px) {
   .topbar {
     flex-direction: column;
