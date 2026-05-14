@@ -139,8 +139,11 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
     `     host.openshell.internal:8002 — runs on the GB10 GPU on the host. Prints a single JSON envelope`,
     `     on stdout with shape {kind:"cuopt.result", status, objective_value, selected_lanes[], metrics{},`,
     `     capacity[], explanation}. No arguments; the scenario is encoded in the script. Typical runtime: 2-15s.)`,
-    `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 <image-path>`,
-    `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout)`,
+    `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 4000 <image-path>`,
+    `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout. Nemotron`,
+    `     is a reasoning model: it emits a hidden thinking trace BEFORE the final answer, and both`,
+    `     consume the --max-tokens budget. 4000 is enough for the chart preset; raising it can slow`,
+    `     the call to >2 minutes. Wall time varies 30–180s depending on chart complexity.)`,
     `  - AIQ Research:   python3 ${skillsDir}/aiq-research/scripts/aiq.py check-auth`,
     `                    python3 ${skillsDir}/aiq-research/scripts/aiq.py research "<query>" shallow_researcher`,
     `    (Submits a shallow async research job, polls server-side, and prints the final report JSON on stdout.`,
@@ -182,6 +185,11 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   lines.push("  invoke the Bash tool with `run_in_background: true` for these scripts — the UI relies on the tool's");
   lines.push("  stdout being the actual command output, not the harness's `Command running in background with ID:`");
   lines.push("  preamble. Each script blocks for tens of seconds; that wait is expected.");
+  lines.push("- IMPORTANT — set a generous Bash-tool timeout for vision_analyze.py and aiq.py. Both can run");
+  lines.push("  longer than the Bash tool's 2-minute default and the tool will kill them mid-flight otherwise.");
+  lines.push("  When invoking vision_analyze.py, pass `timeout: 240000` (4 minutes in milliseconds).");
+  lines.push("  When invoking aiq.py research, pass `timeout: 180000` (3 minutes). cuOpt typically finishes");
+  lines.push("  in <15s and the default is fine for it.");
   lines.push("");
   lines.push("Final synthesis output format (STRICT — the UI parses these headers):");
   lines.push("After your tool calls complete, emit the brief as your final assistant message,");
