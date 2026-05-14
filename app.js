@@ -1390,6 +1390,34 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     addConsoleEntry(stage || "general", `Tool ${name || ""} failed · expand entry for stderr.`);
   }
 
+  if (stage === "cuopt") {
+    if (state.cuoptResolved) {
+      addConsoleEntry("cuopt", "cuopt completed again — ignoring duplicate.");
+      return;
+    }
+    const cleaned = (stdout || "").trim();
+    const bgMatch = cleaned.match(/Command running in background with ID:\s*([\w-]+)/i);
+    if (bgMatch && !isError) {
+      state.cuoptBackgroundBashId = bgMatch[1];
+      setStageSubstate("cuopt", "streaming");
+      addConsoleEntry("cuopt", `cuopt backgrounded by harness (bash id ${bgMatch[1].slice(0,8)}). Waiting for output…`);
+      return;
+    }
+    const result = parseCuoptToolOutput(stdout, isError);
+    applyCuoptResult(result);
+    return;
+  }
+
+  // Layer 3: cuopt sat in the background; look for its real output in any
+  // subsequent tool result. Mirrors the vision background-capture pattern.
+  if (state.cuoptBackgroundBashId && !isError && stage !== "cuopt" &&
+      !state.cuoptResolved && looksLikeCuoptResult(stdout)) {
+    const result = parseCuoptToolOutput(stdout, false);
+    applyCuoptResult(result);
+    state.cuoptBackgroundBashId = null;
+    addConsoleEntry("cuopt", "Captured backgrounded cuopt output.");
+  }
+
   if (stage === "vision" && !isError) {
     const cleaned = (stdout || "").trim();
     // Layer 2: when the agent invokes vision_analyze.py with run_in_background:
