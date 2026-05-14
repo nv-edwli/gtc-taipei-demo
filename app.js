@@ -72,6 +72,12 @@ const state = {
   // so users can dig into the underlying sources.
   planReportRaw: null,
 
+  // Open/closed state for the full-report <details> element. The same report
+  // appears under every plan tab, so the user's toggle decision should
+  // persist when they switch tabs. Default: open (so users see the full
+  // research body the first time AIQ lands; one click hides it everywhere).
+  planFullReportOpen: true,
+
   // Raw vision_analyze.py stdout for the same reason — the Vision panel
   // shows a curated Insights paragraph at the top, with the full analysis
   // (5 numbered detail sections + observations + recommendations) available
@@ -443,6 +449,7 @@ function applyIdleState() {
   state.planTextAccumulator = "";
   state.planSections = null;
   state.planReportRaw = null;
+  state.planFullReportOpen = true;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
@@ -990,10 +997,12 @@ function buildPlanBodyHtml() {
   // details element exposes the underlying research body with citations.
   // Only render when we have the raw report AND the section UI is already
   // showing the synthesis (otherwise the full content is the main render).
+  // The open/closed state is persisted in state.planFullReportOpen so it
+  // survives tab switches (same report on every tab — toggle once).
   const fullReportBlock = (state.planReportRaw && state.planSections && state.planSections[state.activePlan])
     ? `
-      <details class="plan-full-report">
-        <summary>Show full research report (${state.planReportRaw.length.toLocaleString()} chars)</summary>
+      <details class="plan-full-report"${state.planFullReportOpen ? " open" : ""}>
+        <summary>Full research report (${state.planReportRaw.length.toLocaleString()} chars)</summary>
         <div class="plan-full-report-body">${formatPlanText(state.planReportRaw)}</div>
       </details>
     `
@@ -1016,6 +1025,17 @@ function wirePlanJumpButtons(scope) {
   });
 }
 
+function wirePlanFullReportToggle(scope) {
+  // The <details> element is recreated each renderPlanLive (innerHTML rewrite
+  // destroys listeners), so we reattach the toggle handler every render. The
+  // user's open/closed choice persists in state.planFullReportOpen.
+  const details = scope.querySelector(".plan-full-report");
+  if (!details) return;
+  details.addEventListener("toggle", () => {
+    state.planFullReportOpen = details.open;
+  });
+}
+
 function renderPlanLive() {
   if (!state.planTextAccumulator) {
     renderPlanSkeleton();
@@ -1024,6 +1044,7 @@ function renderPlanLive() {
   const html = buildPlanBodyHtml();
   els.planBody.innerHTML = html;
   wirePlanJumpButtons(els.planBody);
+  wirePlanFullReportToggle(els.planBody);
 }
 
 function formatPlanText(text) {
@@ -1203,6 +1224,7 @@ function applyRunIdleSlate() {
   state.planTextAccumulator = "";
   state.planSections = null;
   state.planReportRaw = null;
+  state.planFullReportOpen = true;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
