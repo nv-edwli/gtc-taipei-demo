@@ -1900,6 +1900,17 @@ function formatDuration(ms) {
  * ============================================================ */
 
 function setStageSubstate(stage, substate) {
+  // If vision or AIQ starts before cuopt was ever invoked, treat that as
+  // an implicit "cuopt was skipped" signal and fire the fallback path so
+  // the audience still sees baseline → optimized for Stage 2.
+  if ((stage === "vision" || stage === "aiq") &&
+      (substate === "calling" || substate === "streaming") &&
+      state.stageState.cuopt === "idle" &&
+      !state.cuoptResolved) {
+    applyCuoptResult({ status: "fallback", reason: "not_invoked" });
+    // applyCuoptResult sets state.cuoptResolved itself.
+  }
+
   state.stageState[stage] = substate;
   if (substate === "calling" || substate === "streaming") {
     autoAdvance(stage);
