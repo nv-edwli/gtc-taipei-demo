@@ -1274,6 +1274,47 @@ function fireBeat(beat) {
   }
 }
 
+function applyCuoptResult(result) {
+  if (state.cuoptResolved) return;         // idempotent commit
+  state.cuoptResolved = true;
+
+  const ui = result.status === "fallback"
+    ? mockToUiValues(state.data)
+    : cuoptEnvelopeToUiValues(result.envelope, state.data);
+
+  // Metric bars: animate baseline → ui.metricRows
+  animateMetricBars(state.data.metrics.baseline, ui.metricRows);
+
+  // Capacity chart
+  renderCapacityChart(ui.capacityRows, ui.status, ui.explanation);
+
+  // Map state + supporting routes (reveal-supports delayed so the active
+  // route's CSS transition lands first)
+  setMapStatus(result.status === "infeasible" ? "solving" : "solved");
+  applyMapRoute("reveal-active");
+  applyMapRoute("fade-baseline");
+  setTimeout(() => applyMapRoute("reveal-supports"), 200);
+
+  // Score
+  const penalty = CUOPT_SCORE_PENALTY[result.status] ?? CUOPT_SCORE_PENALTY.fallback;
+  const targetScore = state.optimizedScore - penalty;
+  animateScore(state.currentScore, Math.max(state.currentScore, targetScore), 1400);
+
+  // Stage and copy
+  setStageSubstate("cuopt", "done");
+  els.metricsEyebrow.textContent = "Optimized";
+
+  if (result.status === "fallback") {
+    showToast("warn", `cuOpt returned no usable data (${result.reason}) — showing reference plan.`);
+    addConsoleEntry("cuopt", `cuOpt fallback (${result.reason}). Reference plan shown.`);
+  } else if (result.status === "infeasible") {
+    showToast("warn", "cuOpt returned a best-effort infeasible solution.");
+    addConsoleEntry("cuopt", `cuOpt: ${result.envelope.explanation || "infeasible"}`);
+  } else {
+    addConsoleEntry("cuopt", `cuOpt: ${result.envelope.explanation || "solved"}`);
+  }
+}
+
 function handleAssistantText({ stage, text }) {
   if (!text) return;
 
@@ -2241,7 +2282,10 @@ function showToast(level, text, timeoutMs = 6000) {
   const stack = els.toastStack;
   if (!stack) return;
   const toast = document.createElement("div");
-  toast.className = "toast " + (level === "error" ? "is-error" : "is-info");
+  const cls = level === "error" ? "is-error"
+            : level === "warn"  ? "is-warn"
+            : "is-info";
+  toast.className = "toast " + cls;
   toast.textContent = text;
   stack.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add("is-visible"));

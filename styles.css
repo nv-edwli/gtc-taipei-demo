@@ -2267,6 +2267,11 @@ body.is-run-complete .plan-panel {
 .toast.is-visible { opacity: 1; transform: translateY(0); }
 .toast.is-error { border-color: rgba(255, 95, 86, 0.5); background: rgba(60, 18, 18, 0.94); }
 .toast.is-info { border-color: rgba(0, 195, 255, 0.4); }
+.toast.is-warn {
+  background: var(--accent-amber-soft, #fff3d6);
+  border-color: var(--accent-amber, #b07000);
+  color: var(--accent-amber, #8b5a00);
+}
 
 /* ---------- Tool-call console entries ---------- */
 
