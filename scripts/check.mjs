@@ -117,6 +117,25 @@ if (!data.sample.imagePath || !data.sample.imageLabel) {
   }
 }
 
+// Static-file MIME gate: server.mjs must declare a JavaScript content type for
+// every script extension it serves. Modern browsers REJECT ES-module imports
+// served with the default `application/octet-stream` fallback, which silently
+// kills `app.js`'s entire boot chain (no event handlers wire up, no prompt
+// loads, no buttons work). Reproduced once — never again.
+{
+  const serverMjs = await readFile(new URL("../server.mjs", import.meta.url), "utf8");
+  const requiredMimes = [
+    { ext: '".js"', mime: "text/javascript" },
+    { ext: '".mjs"', mime: "text/javascript" }
+  ];
+  for (const { ext, mime } of requiredMimes) {
+    const re = new RegExp(`${ext.replace(/\./g, "\\.")}\\s*:\\s*"${mime}`);
+    if (!re.test(serverMjs)) {
+      throw new Error(`server.mjs MIME map missing or wrong for ${ext} (expected ${mime}). Browsers reject module imports without a JavaScript MIME type.`);
+    }
+  }
+}
+
 // System-prime smoke test: assemble a fake invocation and assert the resulting
 // stdin payload contains the tokens the demo depends on. Catches typos in
 // buildSystemPrime that would silently break the demo at runtime.
