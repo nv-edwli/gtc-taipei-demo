@@ -1616,6 +1616,82 @@ body.is-run-complete .plan-panel {
   50% { border-bottom-color: transparent; }
 }
 
+/* ---------- Expand-full-content details (AIQ + Vision) ---------- */
+
+.vision-summary {
+  min-height: 72px;
+}
+.vision-full-details,
+.plan-full-report {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.vision-full-details summary,
+.plan-full-report summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-dim);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 4px 0;
+  list-style: none;
+  user-select: none;
+}
+.vision-full-details summary::-webkit-details-marker,
+.plan-full-report summary::-webkit-details-marker {
+  display: none;
+}
+.vision-full-details summary::before,
+.plan-full-report summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 14px;
+  font-size: 0.85em;
+  transition: transform 180ms ease;
+}
+.vision-full-details[open] summary::before,
+.plan-full-report[open] summary::before {
+  transform: rotate(90deg);
+}
+.vision-full-details summary:hover,
+.plan-full-report summary:hover {
+  color: var(--ink);
+}
+
+.vision-full-body {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: rgba(15, 18, 15, 0.5);
+  border: 1px solid var(--border);
+  color: #dfe5d9;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.plan-full-report-body {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: rgba(15, 18, 15, 0.5);
+  border: 1px solid var(--border);
+  max-height: 480px;
+  overflow-y: auto;
+}
+.plan-full-report-body p {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #dfe5d9;
+}
+.plan-full-report-body p:last-child { margin-bottom: 0; }
+
 /* ---------- Confidence chip ---------- */
 
 .confidence-chip {

@@ -64,7 +64,19 @@ const state = {
   // Sticky: true once applyCuoptResult has committed once for this run.
   // Guards against double-fire (e.g. agent invokes cuopt twice) and lets
   // the setStageSubstate guard + finishRun safety-net know cuopt is settled.
-  cuoptResolved: false
+  cuoptResolved: false,
+
+  // Raw aiq.py report text (the "report" field from the envelope). The plan
+  // tabs render the agent's curated synthesis only, but we surface this full
+  // research body below the active section in a collapsible details element
+  // so users can dig into the underlying sources.
+  planReportRaw: null,
+
+  // Raw vision_analyze.py stdout for the same reason — the Vision panel
+  // shows a curated Insights paragraph at the top, with the full analysis
+  // (5 numbered detail sections + observations + recommendations) available
+  // under an "Expand full analysis" details element.
+  visionFullText: null
 };
 
 const SKILL_ACTIVE_FADE_MS = 1400;
@@ -425,10 +437,12 @@ function applyIdleState() {
   state.runId = null;
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.visionFullText = null;
   state.cuoptBackgroundBashId = null;
   state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
+  state.planReportRaw = null;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
@@ -971,9 +985,24 @@ function buildPlanBodyHtml() {
     body = formatPlanText(state.planTextAccumulator);
   }
 
+  // Surface the full aiq.py report below the curated synthesis. This is the
+  // evidence layer: tabs show the agent's 4-paragraph summary, and the
+  // details element exposes the underlying research body with citations.
+  // Only render when we have the raw report AND the section UI is already
+  // showing the synthesis (otherwise the full content is the main render).
+  const fullReportBlock = (state.planReportRaw && state.planSections && state.planSections[state.activePlan])
+    ? `
+      <details class="plan-full-report">
+        <summary>Show full research report (${state.planReportRaw.length.toLocaleString()} chars)</summary>
+        <div class="plan-full-report-body">${formatPlanText(state.planReportRaw)}</div>
+      </details>
+    `
+    : "";
+
   return `
     <p class="plan-prefix"><strong>${escapeHtml(prefix)}:</strong></p>
     <div class="plan-live-body">${body}</div>
+    ${fullReportBlock}
   `;
 }
 
@@ -1168,10 +1197,12 @@ function applyRunIdleSlate() {
   els.console.innerHTML = "";
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.visionFullText = null;
   state.cuoptBackgroundBashId = null;
   state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
+  state.planReportRaw = null;
   state.aiqJobId = null;
   state.hasInitializedVisionTypewriter = false;
   resetSkillState();
@@ -1440,6 +1471,7 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
       if (cleaned) {
         const summary = extractVisionSummary(cleaned);
         state.visionTextAccumulator = summary;
+        state.visionFullText = cleaned;        // preserve the full Nemotron output
         updateVisionCopy(summary);
       }
       finalizeVisionDone();
@@ -1455,6 +1487,7 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     const summary = extractVisionSummary(stdout);
     if (summary) {
       state.visionTextAccumulator = summary;
+      state.visionFullText = (stdout || "").trim();
       updateVisionCopy(summary);
       finalizeVisionDone();
       state.visionBackgroundBashId = null;
@@ -1531,6 +1564,7 @@ function parseAiqToolOutput(stdout, _name, isError) {
     // so probe common locations.
     const content = findReportContent(obj);
     if (content && content.length > 80) {
+      state.planReportRaw = content;             // keep the original aiq.py report verbatim
       state.planTextAccumulator = content;
       state.planSections = parsePlanSections(content);
       renderPlanLive();
@@ -1571,6 +1605,7 @@ function parseAiqToolOutput(stdout, _name, isError) {
   if (contentMatch) {
     const decoded = jsonStringDecode(contentMatch[1]);
     if (decoded.length > 80) {
+      state.planReportRaw = decoded;
       state.planTextAccumulator = decoded;
       state.planSections = parsePlanSections(decoded);
       renderPlanLive();
@@ -1757,14 +1792,37 @@ function jsonStringDecode(s) {
 function updateVisionCopy(text) {
   if (!text) return;
   const trimmed = text.trim();
+
+  // Build the panel structure: curated summary block on top, optional full-analysis
+  // details below. extractVisionSummary returns one section (usually Insights ~800
+  // chars), but vision_analyze.py emits much more (numbered chart-reading sections,
+  // observations, recommendations). Surface the full text so the audience can dig in.
+  const fullText = state.visionFullText && state.visionFullText !== trimmed
+    ? state.visionFullText
+    : null;
+  els.visionCopy.innerHTML = `
+    <div class="vision-summary"></div>
+    ${fullText ? `
+      <details class="vision-full-details">
+        <summary>Show full analysis (${fullText.length.toLocaleString()} chars)</summary>
+        <pre class="vision-full-body"></pre>
+      </details>
+    ` : ""}
+  `;
+  const summaryEl = els.visionCopy.querySelector(".vision-summary");
+  const fullBodyEl = els.visionCopy.querySelector(".vision-full-body");
+  if (fullBodyEl && fullText) {
+    fullBodyEl.textContent = fullText;        // <pre> + textContent preserves tables, markdown, line breaks
+  }
+
   if (REDUCED_MOTION || state.hasInitializedVisionTypewriter) {
-    els.visionCopy.textContent = trimmed;
+    summaryEl.textContent = trimmed;
   } else {
     state.hasInitializedVisionTypewriter = true;
     // Scale speed with length so a longer Insights extraction doesn't take 30s.
     // 40 cps was fine for the old 500-char hard slice; bump for longer text.
     const cps = trimmed.length > 600 ? 120 : 60;
-    typewrite(els.visionCopy, trimmed, cps);
+    typewrite(summaryEl, trimmed, cps);
   }
 }
 
