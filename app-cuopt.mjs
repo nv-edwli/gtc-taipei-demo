@@ -15,8 +15,21 @@ export const CUOPT_TO_UI_NODE = {
   taoyuan: "Air"
 };
 
-export function parseCostDisplay(_s) { return null; }       // implemented Task 2
-export function looksLikeCuoptResult(_t) { return false; }  // implemented Task 2
+export function parseCostDisplay(s) {
+  if (typeof s !== "string") return null;
+  const m = s.match(/\$([\d.]+)M/);
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  return Number.isFinite(v) ? Math.round(v * 1_000_000) : null;
+}
+
+export function looksLikeCuoptResult(text) {
+  if (!text || typeof text !== "string" || text.length < 40) return false;
+  const head = text.slice(0, 400);
+  if (/"kind"\s*:\s*"cuopt\.result"/.test(head)) return true;
+  if (/"selected_lanes"\s*:/.test(head) && /"objective_value"\s*:/.test(head)) return true;
+  return false;
+}
 export function parseCuoptToolOutput(_stdout, _isError) {   // implemented Task 3
   return { status: "fallback", reason: "not_implemented" };
 }
