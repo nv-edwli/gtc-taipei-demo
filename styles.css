@@ -2443,11 +2443,13 @@ body.is-run-complete .plan-panel {
   border: 1px solid var(--term-border);
   overflow: hidden;
   /* Flex column so the body (or the submitted-state) can flex-fill the
-     vertical space when the brief canvas stretches to fill the cockpit row. */
+     vertical space when the brief canvas stretches to fill the cockpit row.
+     min-height 60vh guarantees a generous terminal height even when the
+     rail + progress sidebars happen to be short on a fresh load. */
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 60vh;
 }
 
 .terminal-titlebar {
@@ -2498,6 +2500,10 @@ body.is-run-complete .plan-panel {
   flex: 1 1 auto;
   min-height: 0;
 }
+/* The author-stylesheet `display: flex` above overrides the UA stylesheet's
+   `[hidden] { display: none }`, so explicitly hide when the JS toggles the
+   `hidden` attribute (setPromptView swaps edit/summary via this attribute). */
+.terminal-body[hidden] { display: none; }
 
 .terminal-attached {
   display: inline-flex;
@@ -2509,7 +2515,11 @@ body.is-run-complete .plan-panel {
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.82rem;
+  /* Without this, the parent flex-column stretches the chip to fill the
+     full row width — its background fills past the × button. */
+  align-self: flex-start;
 }
+.terminal-attached[hidden] { display: none; }
 .terminal-attached-glyph { font-weight: 700; }
 .terminal-attached-name  { color: var(--term-ink); }
 .terminal-attached-clear {
@@ -2634,6 +2644,7 @@ body.is-run-complete .plan-panel {
   flex-direction: column;
   gap: 10px;
 }
+.terminal-submitted[hidden] { display: none; }
 .terminal-submitted-line {
   display: grid;
   grid-template-columns: auto 1fr;
