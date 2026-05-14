@@ -1477,6 +1477,40 @@ body.is-run-complete .plan-panel {
   background: linear-gradient(90deg, var(--nvidia-green), var(--cyan));
 }
 
+.metric-bars.is-skeleton .bar-fill.is-pulsing {
+  background: linear-gradient(90deg,
+    var(--surface-2) 0%,
+    var(--accent-soft) 50%,
+    var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.2s linear infinite;
+  width: 60% !important;
+}
+.skel-line {
+  display: inline-block;
+  width: 90px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  vertical-align: middle;
+}
+.skel-line.short { width: 50px; height: 10px; }
+.metric-row[data-source="mock"] .bar-fill {
+  /* Subtle dotted overlay marks "this row is from the reference plan" */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    rgba(0,0,0,0.06) 4px 5px);
+}
+.metric-label-row strong,
+.metric-delta {
+  transition: opacity 220ms ease;
+}
+@keyframes skel-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ---------- Vision Insights body (image | insights) ---------- */
 
 .vision-body {

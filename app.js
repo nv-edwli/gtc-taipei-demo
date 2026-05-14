@@ -661,6 +661,86 @@ function renderMetrics(phase) {
   }).join("");
 }
 
+function renderMetricsSkeleton() {
+  // 4 empty rows with pulsing bar-fills. Matches the structure of renderMetrics
+  // so animateMetricBars can find .metric-row .bar-fill and tween them.
+  const rows = [0, 1, 2, 3].map((ix) => `
+    <div class="metric-row is-skeleton" data-row="${ix}">
+      <div class="metric-label">
+        <div class="metric-label-row">
+          <span class="skel-line"></span>
+          <strong class="skel-line short"></strong>
+        </div>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill is-pulsing" style="width: 0%"></div>
+      </div>
+    </div>
+  `).join("");
+  els.metricBars.innerHTML = rows;
+  els.metricBars.classList.add("is-skeleton");
+  els.metricsEyebrow.textContent = "Solving…";
+}
+
+function animateMetricBars(fromRows, toRows) {
+  // If the DOM doesn't currently hold 4 .metric-row elements (e.g. coming out
+  // of skeleton or first run), re-render the structure now. We do this in
+  // baseline state so animateMetricBars can tween from there.
+  if (els.metricBars.querySelectorAll(".metric-row").length !== 4 ||
+      els.metricBars.classList.contains("is-skeleton")) {
+    renderMetrics("baseline");
+  }
+  els.metricBars.classList.remove("is-skeleton");
+  els.metricBars.classList.remove("is-baseline");
+  els.metricBars.classList.add("is-optimized");
+
+  const rowEls = els.metricBars.querySelectorAll(".metric-row");
+  toRows.forEach((target, ix) => {
+    const li = rowEls[ix];
+    if (!li) return;
+    const fill = li.querySelector(".bar-fill");
+    const fromVal = fromRows[ix].value;
+    const toVal = target.value;
+    if (fill) {
+      tween({
+        from: fromVal, to: toVal, duration: 900, easing: easeOutCubic,
+        key: `metric-bar-${ix}`,
+        onUpdate: (v) => { fill.style.width = v + "%"; }
+      });
+    }
+    // After the bar tween starts, swap in the new display string + delta chip
+    // with a small fade so the text doesn't pop while the bar is still moving.
+    const labelStrong = li.querySelector(".metric-label-row strong");
+    if (labelStrong) {
+      labelStrong.style.opacity = "0";
+      setTimeout(() => {
+        labelStrong.textContent = target.display;
+        labelStrong.style.opacity = "1";
+      }, 250);
+    }
+    // Delta chip lives under .metric-label as .metric-delta. Insert or update.
+    const labelBlock = li.querySelector(".metric-label");
+    let delta = labelBlock.querySelector(".metric-delta");
+    if (target.delta) {
+      if (!delta) {
+        delta = document.createElement("span");
+        delta.className = "metric-delta";
+        labelBlock.appendChild(delta);
+      }
+      delta.style.opacity = "0";
+      setTimeout(() => {
+        delta.textContent = target.delta;
+        delta.style.opacity = "1";
+      }, 300);
+    }
+    // Visual hint that this row's value came from a fallback rather than the
+    // envelope. CSS uses [data-source="mock"] to tint the bar slightly.
+    li.setAttribute("data-source", target.dataSource || "envelope");
+  });
+
+  els.metricsEyebrow.textContent = "Optimized";
+}
+
 function toBrowserImageUrl(hostPath) {
   if (!hostPath) return null;
   if (hostPath.startsWith("/tmp/uploads/")) {
