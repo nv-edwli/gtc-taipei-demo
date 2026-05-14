@@ -777,6 +777,15 @@ main.cockpit[data-active-stage="cuopt"]  [data-stage-canvas~="cuopt"]  { display
 main.cockpit[data-active-stage="vision"] [data-stage-canvas~="vision"] { display: block; }
 main.cockpit[data-active-stage="aiq"]    [data-stage-canvas~="aiq"]    { display: block; }
 
+/* canvas-cuopt is the only stage canvas that stacks two panels (metric-panel
+   + capacity-panel). Block layout gives them no inter-panel separation, so
+   flex-column with a gap matching cockpit-canvas's gap (16px). */
+main.cockpit[data-active-stage="cuopt"] #canvas-cuopt {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 [data-stage-canvas].is-entering {
   animation: stage-fade-in 240ms cubic-bezier(0.22, 1, 0.36, 1) 1;
 }

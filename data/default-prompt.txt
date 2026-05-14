@@ -4,10 +4,10 @@ First call cuOpt (taiwan_supply_chain/run.py) to compute the optimized weekly la
 
 Then use Vision Insights (vision_analyze.py) to interpret the attached capacity-utilization chart against the cuOpt result — which nodes are still under pressure, where buffer capacity has opened up, what the operator should watch.
 
-Then call AIQ Research (aiq.py) to do deep research on:
-- competitive landscape for premium contract manufacturing routed through Taiwan
-- key feasibility risks (geopolitical, weather, supplier concentration)
-- buyer profile and go-to-market motions
-- a phased execution plan from pilot to production
+Then call AIQ Research (aiq.py) for a shallow research pass. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence (those require a separate 24h auth flow we don't have). Topics:
+- public competitive landscape for premium contract manufacturing routed through Taiwan
+- publicly-reported feasibility risks (geopolitical, weather, supplier concentration)
+- general buyer-profile and go-to-market patterns for advanced manufacturing
+- a generic phased execution plan from pilot to production
 
 Stitch the cuOpt numbers, the visual interpretation, and the research findings into a single board-ready brief covering strategy, market, risk, and execution.

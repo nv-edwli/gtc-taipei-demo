@@ -167,6 +167,16 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   lines.push("  The `shallow_researcher` argument is mandatory — do not omit it, do not substitute `deep_researcher`,");
   lines.push("  and do not fall back to `aiq.py chat`. The `research` command blocks for 20–60s while it polls server-side;");
   lines.push("  that wait is expected, not a failure. When it returns, its stdout will be the report JSON.");
+  lines.push("- IMPORTANT — keep the AIQ query SCOPED TO PUBLIC SOURCES ONLY. The demo's NVAuth token does NOT grant");
+  lines.push("  access to ECI (Enterprise Competitive Intelligence) or NVIDIA-internal proprietary data, and any query");
+  lines.push("  that triggers an ECI lookup will fail server-side with an auth error after ~30s. To avoid this:");
+  lines.push("    * Prefix the AIQ query with the directive: \"Using only publicly available web sources, …\".");
+  lines.push("    * Ask about publicly observable topics (market reports, news, geopolitical and weather risk, supplier");
+  lines.push("      concentration in published filings) — NOT about NVIDIA internal customer lists, proprietary deals,");
+  lines.push("      enterprise pipeline data, or anything that names \"ECI\" / \"enterprise intelligence\".");
+  lines.push("    * Frame the question as competitive/market analysis a public-source consultant could write.");
+  lines.push("  If the AIQ result returns `\"error\": \"ECI search failed: No authentication token available...\"`, that");
+  lines.push("  means the query asked for enterprise data. Do NOT retry — report the failure and let the UI fall back.");
   lines.push("- Keep each tool call focused; do not retry on transient errors more than twice.");
   lines.push("- Run every skill script (cuOpt, vision_analyze.py, aiq.py) SYNCHRONOUSLY in the foreground. Do NOT");
   lines.push("  invoke the Bash tool with `run_in_background: true` for these scripts — the UI relies on the tool's");
