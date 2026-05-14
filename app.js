@@ -1,3 +1,11 @@
+import {
+  parseCuoptToolOutput,
+  cuoptEnvelopeToUiValues,
+  mockToUiValues,
+  looksLikeCuoptResult,
+  CUOPT_SCORE_PENALTY
+} from "./app-cuopt.mjs";
+
 const REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const SAMPLE_IMAGE_PATH = "/home/nvidia/gtc-taipei-demo/data/sample-capacity.png";
@@ -48,7 +56,15 @@ const state = {
   // harness's "Command running in background with ID: …" preamble, not the
   // real Nemotron output. We stash the bash_id here and watch subsequent
   // tool results for the actual vision content. See handleToolCompleted.
-  visionBackgroundBashId: null
+  visionBackgroundBashId: null,
+
+  // Same pattern for the cuopt script.
+  cuoptBackgroundBashId: null,
+
+  // Sticky: true once applyCuoptResult has committed once for this run.
+  // Guards against double-fire (e.g. agent invokes cuopt twice) and lets
+  // the setStageSubstate guard + finishRun safety-net know cuopt is settled.
+  cuoptResolved: false
 };
 
 const SKILL_ACTIVE_FADE_MS = 1400;
@@ -398,6 +414,8 @@ function applyIdleState() {
   state.runId = null;
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.cuoptBackgroundBashId = null;
+  state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
   state.aiqJobId = null;
@@ -997,6 +1015,8 @@ function applyRunIdleSlate() {
   els.console.innerHTML = "";
   state.visionTextAccumulator = "";
   state.visionBackgroundBashId = null;
+  state.cuoptBackgroundBashId = null;
+  state.cuoptResolved = false;
   state.planTextAccumulator = "";
   state.planSections = null;
   state.aiqJobId = null;
