@@ -2057,6 +2057,18 @@ function finishRun(data) {
   if (!state.running && state.completed) return;
   state.running = false;
   state.completed = true;
+
+  // Safety-net: if the run completed while cuopt was still streaming (e.g. the
+  // harness backgrounded the call and never surfaced the real output), or if
+  // the agent never called cuopt at all, fire the fallback now so the UI
+  // doesn't end on a skeleton or a "skipped" rail pip.
+  if (!state.cuoptResolved) {
+    applyCuoptResult({
+      status: "fallback",
+      reason: state.cuoptBackgroundBashId ? "background_timeout" : "not_invoked"
+    });
+  }
+
   const elapsedMs = performance.now() - state.runStartedAt;
   const elapsedSec = (elapsedMs / 1000).toFixed(1);
 
