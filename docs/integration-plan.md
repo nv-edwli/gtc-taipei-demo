@@ -1,90 +1,50 @@
-# Integration Plan
+# Integration
 
-## Current State
+How the live skill flow is wired and how to extend it.
 
-The frontend is live and data-driven, but all skill outputs are mocked in `data/supply-chain.json`. This is intentional for the first GTC demo shell because it keeps the run deterministic and portable.
+## Current state
 
-## Backend Toggle
+The three skills are live:
 
-The `Codex` and `Claude` segmented control should eventually select the orchestration backend:
+| Skill | Script | Where it runs |
+| --- | --- | --- |
+| cuOpt | `skills/cuopt/cuopt-server-api-python/assets/taiwan_supply_chain/run.py` | Local cuOpt REST server at `host.openshell.internal:8002` (GB10 GPU). |
+| Vision Insights | `skills/vision-insights/scripts/vision_analyze.py` | Nemotron Omni at `host.openshell.internal:8000` (NIM endpoint). |
+| AIQ Research | `skills/aiq-research/scripts/aiq.py research "<q>" shallow_researcher` | Remote `api.aiq.nvidia.com` (NVAuth-gated). |
 
-```http
-POST /api/runs
-{
-  "harness": "codex",
-  "scenario": "taiwan-manufacturing-supply-chain"
-}
-```
+Surface selection (`surface: "auto" | "sandbox" | "host"`) lives in `server/sandbox.mjs`. Auto pings the openshell sandbox via `checkSandbox()` and picks sandbox if reachable, otherwise host. The system prime that lists the available skill scripts is assembled in `server/sandbox.mjs:buildSystemPrime`.
 
-The backend should stream progress events with a stable shape:
+## Adding a new skill
 
-```json
-{
-  "stage": "cuopt",
-  "status": "running",
-  "message": "Invoking cuOpt skill",
-  "artifact": null
-}
-```
+A new skill (call it `xyz`) needs the following wiring:
 
-Both harnesses should call the same packaged skills and return the same artifact schema.
+1. **Register in the system prime.** Add a bullet to `server/sandbox.mjs:buildSystemPrime` describing the script path and stdout shape. The agent only knows about scripts that appear here.
+2. **Add a stage hint (if it deserves its own stage).** Add an entry to `STAGE_HINTS` in BOTH `server/normalize-claude.mjs` and `server/normalize-codex.mjs`. Pick unambiguous tokens (script name fragments, unique JSON markers) that won't collide with other skills.
+3. **Add a parser in `app.js` (if stdout is structured).** Mirror the `cuopt` pattern: parse client-side, route through a single `applyXyzResult` commit-point, render to a stage panel.
+4. **Add a smoke-test assertion.** In `scripts/check.mjs`, assert that the system prime contains the new script path.
+5. **Update the data shape.** If the skill needs scenario data, extend `data/supply-chain.json` and `scripts/check.mjs`'s shape checks.
 
-## cuOpt Skill
+## Event contract
 
-Replace the mock `metrics.optimized` and route animation trigger with the output of `skills/cuopt/contract.md`. The first live version only needs:
+`/api/run` returns NDJSON beats of the form `{ "kind": "...", "data": {...} }`. The orchestrator emits:
 
-- objective summary
-- selected lanes
-- rejected lanes
-- per-node utilization
-- cost, cycle-time, and service-level metrics
+- `surface.info` — first beat. `{ surface, sandboxReachable, reason, harness }`.
+- `run.registered` — `{ runId, harness, surface, cmd, argv }`.
+- `run.started` — synthesized by the harness normalizer. `{ sessionId, model, harness, tools }`.
+- `tool.invoked` — synthesized. `{ id, name, input, stage }`. Stage ∈ `"cuopt"`, `"vision"`, `"aiq"`, `"general"`.
+- `tool.completed` — synthesized. `{ id, name, stage, stdout, stderr, isError, durationMs }`.
+- `assistant.text` — synthesized free-text. `{ stage, text }`.
+- `log` — `{ level, text }`. Level ∈ `"warn"`, `"stderr"`, `"info"`, `"debug"`.
+- `run.completed` | `run.failed` | `run.cancelled` — exactly one terminal beat per run.
 
-## Vision Insights Skill
+The frontend derives stage transitions from `tool.invoked` / `tool.completed` — there is no separate `stage.*` event.
 
-Generate a chart image from the cuOpt result, then call:
+## cuOpt envelope
 
-```bash
-python3 skills/vision-insights/scripts/vision_analyze.py \
-  --preset chart \
-  --max-tokens 6000 \
-  ./artifacts/cuopt-capacity.png
-```
+Schema documented in `skills/cuopt/contract.md`. The frontend parser lives in `app-cuopt.mjs:parseCuoptToolOutput`. Failure modes (script error, parse error, missing fields, agent skipped, harness-backgrounded) all route through `app.js:applyCuoptResult` with a single sticky `state.cuoptResolved` flag.
 
-The returned final answer can populate the Vision Insights panel. Keep the raw model reasoning out of the frontend unless the demo explicitly needs a debug view.
-
-## AIQ Research Skill
-
-Start with auth:
-
-```bash
-python3 skills/aiq-research/scripts/aiq.py check-auth
-```
-
-Submit a research prompt containing:
-
-- the optimized route summary
-- key cuOpt metrics
-- Vision Insights chart summary
-- target audience and desired business-plan depth
-- required sections: strategy, market, risk, feasibility, execution
-
-If the AIQ response returns a `deep_research_running` job ID, stream the status into the run trace and fetch the final report when complete.
-
-## Frontend Event Contract
-
-The frontend can stay framework-free if the backend exposes server-sent events:
-
-```http
-GET /api/runs/{run_id}/events
-```
-
-Event types:
-
-- `stage.started`
-- `stage.progress`
-- `artifact.created`
-- `stage.completed`
-- `run.completed`
-- `run.failed`
-
-This keeps the UI unchanged while allowing either Codex or Claude to power the run.
+To extend cuOpt with new envelope fields:
+1. Add the field in `run.py:envelope_from_solution`.
+2. Wire it into `app-cuopt.mjs:cuoptEnvelopeToUiValues`.
+3. Update the schema example in `skills/cuopt/contract.md`.
+4. Add an assertion in `scripts/check.mjs` if the field is required.
