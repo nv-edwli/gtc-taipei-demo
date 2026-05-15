@@ -38,7 +38,7 @@ network_policies:
       - 10.84.237.61
     binaries:
     - path: /usr/bin/curl
-    - path: /usr/bin/python3.11
+    - path: /usr/bin/python3.13
   brave:
     name: brave
     endpoints:
@@ -527,7 +527,7 @@ network_policies:
           path: /token
     binaries:
     - path: /usr/local/bin/openclaw
-    - path: /usr/bin/python3.11
+    - path: /usr/bin/python3.13
   openclaw_api:
     name: openclaw_api
     endpoints:
