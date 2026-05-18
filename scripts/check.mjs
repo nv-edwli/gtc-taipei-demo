@@ -148,7 +148,7 @@ if (!data.sample.imagePath || !data.sample.imageLabel) {
   });
   const prime = inv.stdin || "";
   const required = [
-    "taiwan_supply_chain/run.py",
+    "cuopt/max-supply/run.py",
     "shallow_researcher",
     "## Strategy",
     "## Market",

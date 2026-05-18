@@ -1,5 +1,5 @@
 const STAGE_HINTS = {
-  cuopt: ["taiwan_supply_chain", "cuopt.result", "/cuopt/request", "/cuopt/solution"],
+  cuopt: ["taiwan_supply_chain", "cuopt.result", "/cuopt/request", "/cuopt/solution", "max-supply/run.py"],
   vision: ["vision_analyze.py", "Vision Insights", "Nemotron Omni"],
   aiq: ["aiq.py", "AIQ Research", "deep_research_running", "research_poll"]
 };

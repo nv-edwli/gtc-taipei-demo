@@ -1,13 +1,17 @@
-Solve the Taiwan semiconductor supply-chain scenario, then research a business plan around the optimized flow.
+Solve the max-supply MILP what-if scenario, then research a business plan around the results.
 
-First call cuOpt (taiwan_supply_chain/run.py) to compute the optimized weekly lanes and per-node utilization for the 6-node corridor in skills/cuopt/contract.md.
+First call cuOpt (skills/cuopt/max-supply/run.py) to run two MILP solves:
+  1. Baseline: zero opening inventory for all items.
+  2. What-if: SA1=40, RM1=250, RM3=180 units opening inventory.
 
-Then use Vision Insights (vision_analyze.py) to interpret the attached capacity-utilization chart against the cuOpt result — which nodes are still under pressure, where buffer capacity has opened up, what the operator should watch.
+The script prints a single JSON envelope with kind "cuopt.result" containing baseline metrics, what-if metrics, deltas, and an explanation. Parse that envelope — FG1/FG2 end-of-horizon inventory, RM1 buy-order reductions by period, and the objective improvement are the headline numbers.
 
-Then call AIQ Research (aiq.py) for a shallow research pass. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence (those require a separate 24h auth flow we don't have). Topics:
-- public competitive landscape for premium contract manufacturing routed through Taiwan
-- publicly-reported feasibility risks (geopolitical, weather, supplier concentration)
-- general buyer-profile and go-to-market patterns for advanced manufacturing
-- a generic phased execution plan from pilot to production
+Then use Vision Insights (vision_analyze.py) to interpret the attached inventory-build chart against the cuOpt result — which periods show the most buy-order relief, how quickly FG1 inventory builds in the what-if vs baseline, and what the operator should watch.
 
-Stitch the cuOpt numbers, the visual interpretation, and the research findings into a single board-ready brief covering strategy, market, risk, and execution.
+Then call AIQ Research (aiq.py) for a shallow research pass. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence. Topics:
+- public competitive landscape for GPU-accelerated supply-chain planning and MILP optimisation tools
+- publicly-reported risk factors for multi-level BOM manufacturing (supply volatility, lead-time uncertainty)
+- general buyer-profile and go-to-market patterns for advanced manufacturing planning software
+- a generic phased execution plan from pilot to production for an AI-native planning tool
+
+Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single board-ready brief covering strategy, market, risk, and execution.

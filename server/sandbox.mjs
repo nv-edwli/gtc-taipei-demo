@@ -4,7 +4,13 @@ import { existsSync } from "node:fs";
 const OPENSHELL_BIN = "/home/nvidia/.local/bin/openshell";
 const SANDBOX_NAME = "my-assistant";
 const HOST_CLAUDE = "/home/nvidia/.local/bin/claude";
-const HOST_CODEX = "/home/nvidia/.nvm/versions/node/v22.22.2/bin/codex";
+const HOST_CODEX      = "/tmp/npm-global/bin/codex";
+const SANDBOX_CODEX   = "/tmp/npm-global/bin/codex";  // codex harness inside the sandbox — uses integrate.api.nvidia.com
+
+// Vision skill hosted endpoint + auth (NGC key used for integrate.api.nvidia.com)
+const VISION_ENDPOINT = process.env.VISION_ENDPOINT || "https://integrate.api.nvidia.com/v1/chat/completions";
+const VISION_API_KEY  = process.env.VISION_API_KEY  || process.env.NGC_API_KEY || "";
+
 
 const SANDBOX_SKILLS_DIR = "/sandbox/gtc-taipei-demo/skills";
 const HOST_SKILLS_DIR = "/home/nvidia/gtc-taipei-demo/skills";
@@ -134,11 +140,13 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
     "You are the orchestrator for an NVIDIA GTC Taipei demo about CUDA-X skills.",
     "",
     "Available skill scripts (call them directly via the Bash tool):",
-    `  - cuOpt Routing:  python3 ${skillsDir}/cuopt/cuopt-server-api-python/assets/taiwan_supply_chain/run.py`,
-    `    (Solves the Taiwan manufacturing supply-chain routing problem via the cuOpt REST server at`,
-    `     host.openshell.internal:8002 — runs on the GB10 GPU on the host. Prints a single JSON envelope`,
-    `     on stdout with shape {kind:"cuopt.result", status, objective_value, selected_lanes[], metrics{},`,
-    `     capacity[], explanation}. No arguments; the scenario is encoded in the script. Typical runtime: 2-15s.)`,
+    `  - cuOpt MILP:     python3 ${skillsDir}/cuopt/max-supply/run.py`,
+    `    (Solves the max-supply multi-period MILP what-if via the cuOpt REST server at`,
+    `     host.openshell.internal:8002 — GPU-accelerated on the host. Runs two solves:`,
+    `     baseline (zero opening inventory) and what-if (SA1=40, RM1=250, RM3=180 units).`,
+    `     Prints a single JSON envelope on stdout with shape`,
+    `     {kind:"cuopt.result", status, baseline{}, whatif{}, delta{}, opening_stock{}, explanation}.`,
+    `     No arguments; the scenario is encoded in the script. Typical runtime: 10-60s.)`,
     `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 4000 <image-path>`,
     `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout. Nemotron`,
     `     is a reasoning model: it emits a hidden thinking trace BEFORE the final answer, and both`,
@@ -161,10 +169,10 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   }
 
   lines.push("Guidance:");
-  lines.push("- Call cuOpt FIRST. The optimized lanes, per-node utilization, and economic metrics it returns are the");
+  lines.push("- Call cuOpt FIRST. The baseline and what-if MILP results it returns are the");
   lines.push("  factual basis the later stages depend on. Run it once, parse its stdout JSON envelope, and reference");
-  lines.push("  its numbers (objective_value, selected_lanes, peak_capacity_pressure) in your synthesis. If cuOpt");
-  lines.push("  fails or returns status != \"solved\", stop and report — do not fabricate routes.");
+  lines.push("  its numbers (delta.objective, delta.fg1_final, baseline.rm1_buy_total, whatif.rm1_buy_total) in your synthesis.");
+  lines.push("  If cuOpt fails or returns status != \"solved\", stop and report — do not fabricate numbers.");
   lines.push("- Before calling AIQ Research, run `aiq.py check-auth`. If it returns need_browser_login, stop and report.");
   lines.push("- Issue exactly ONE AIQ research call as: `aiq.py research \"<query>\" shallow_researcher`.");
   lines.push("  The `shallow_researcher` argument is mandatory — do not omit it, do not substitute `deep_researcher`,");
@@ -233,11 +241,11 @@ export function buildInvocation({ harness, prompt, imagePath, surface }) {
       "-p",
       "--output-format", "stream-json",
       "--verbose",
-      "--permission-mode", "bypassPermissions",
+      "--dangerously-skip-permissions",
       "--add-dir", skillsDir
     ];
   } else if (harness === "codex") {
-    innerBin = surface === "sandbox" ? "/sandbox/.local/bin/codex" : HOST_CODEX;
+    innerBin = surface === "sandbox" ? SANDBOX_CODEX : HOST_CODEX;
     // Inside openshell, Codex's own nested namespace sandbox cannot initialize and
     // its shell tool fails for every command. Explicitly bypass — openshell's
     // policy at policies/my-assistant-policy.yaml is the real boundary.
@@ -249,11 +257,20 @@ export function buildInvocation({ harness, prompt, imagePath, surface }) {
     throw new Error(`Unsupported harness: ${harness}`);
   }
 
+  const extraEnv = { VISION_ENDPOINT, VISION_API_KEY };
+
   if (surface === "sandbox") {
+    // openshell strips host env vars so .bashrc is not sourced for non-interactive
+    // exec sessions. Wrap the inner command in bash -c that sources .bashrc first
+    // so OPENAI_API_KEY (and any other keys stored there) reach the harness binary.
+    const wrappedArgs = ["sandbox", "exec", "-n", SANDBOX_NAME, "--",
+      "/bin/bash", "-c",
+      `source ~/.bashrc 2>/dev/null; exec ${innerBin} ${innerArgs.map(a => `'${a}'`).join(" ")}`
+    ];
     return {
       cmd: OPENSHELL_BIN,
-      args: ["sandbox", "exec", "-n", SANDBOX_NAME, "--", innerBin, ...innerArgs],
-      env: { ...process.env },
+      args: wrappedArgs,
+      env: { ...process.env, ...extraEnv },
       stdin: stdinPayload
     };
   }
@@ -261,7 +278,7 @@ export function buildInvocation({ harness, prompt, imagePath, surface }) {
   return {
     cmd: innerBin,
     args: innerArgs,
-    env: { ...process.env },
+    env: { ...process.env, ...extraEnv },
     stdin: stdinPayload
   };
 }

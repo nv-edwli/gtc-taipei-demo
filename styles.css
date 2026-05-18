@@ -969,6 +969,148 @@ h2 {
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* ---------- Scenario overview (replaces Taiwan SVG map) ---------- */
+
+.scenario-overview {
+  position: relative;
+  margin: 0 18px 18px;
+  min-height: 340px;
+  padding: 18px 20px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    radial-gradient(circle at 30% 60%, rgba(118, 185, 0, 0.12), transparent 16rem),
+    #0c120c;
+  background-size: 36px 36px, 36px 36px, auto, auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.scenario-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scenario-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scenario-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scenario-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 12px;
+  background: var(--panel-strong);
+  border: 1px solid rgba(118, 185, 0, 0.22);
+  border-radius: 8px;
+  min-width: 96px;
+  transition: border-color 0.35s, box-shadow 0.35s, background 0.35s;
+}
+
+.scenario-chip.is-active {
+  border-color: var(--nvidia-green);
+  background: rgba(118, 185, 0, 0.07);
+  box-shadow: 0 0 14px rgba(118, 185, 0, 0.18);
+}
+
+.scenario-chip.is-shimmer {
+  animation: chipShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes chipShimmer {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.chip-item {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--nvidia-green);
+}
+
+.chip-qty {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.chip-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* BOM diagram */
+.scenario-bom {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  flex: 1;
+}
+
+.bom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+}
+
+.bom-node {
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.bom-rm { background: rgba(0, 195, 255, 0.13); color: var(--cyan); border: 1px solid rgba(0, 195, 255, 0.2); }
+.bom-sa { background: rgba(240, 180, 41, 0.13); color: var(--amber); border: 1px solid rgba(240, 180, 41, 0.2); }
+.bom-fg { background: rgba(118, 185, 0, 0.13); color: var(--nvidia-green); border: 1px solid rgba(118, 185, 0, 0.2); }
+
+.bom-arrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.bom-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+
+/* Responsive: shrink scenario overview the same way map-wrap shrank */
+@media (min-width: 1280px) {
+  main.cockpit[data-active-stage="brief"] .scenario-overview,
+  main.cockpit[data-active-stage="cuopt"] .scenario-overview {
+    min-height: 300px;
+  }
+}
+
 /* ---------- Map ---------- */
 
 .map-wrap {

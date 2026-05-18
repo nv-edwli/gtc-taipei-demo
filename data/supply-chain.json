@@ -6,22 +6,22 @@
     "aiq": "AIQ Research"
   },
   "scenarioLoad": {
-    "total": 1240,
-    "unit": "weekly lots",
-    "display": "1,240 weekly lots",
-    "placeholder": "— weekly lots"
+    "total": 10,
+    "unit": "planning periods",
+    "display": "10-period MILP",
+    "placeholder": "— planning periods"
   },
   "scoreContext": {
     "baseline": 41,
     "optimized": 91,
-    "deltaLabel": "+50 readiness",
+    "deltaLabel": "+50 supply score",
     "baselineLabel": "baseline",
-    "optimizedLabel": "optimized"
+    "optimizedLabel": "what-if"
   },
   "mapStatus": {
-    "baseline": "Baseline routing · stressed",
-    "solving": "Solving 1,240 lots…",
-    "solved": "Optimized lane found · cost −22%"
+    "baseline": "Zero opening inventory · standard horizon",
+    "solving": "Solving MILP (baseline + what-if)…",
+    "solved": "What-if solved · opening stock applied"
   },
   "closing": {
     "eyebrow": "RUN COMPLETE",
@@ -31,10 +31,12 @@
     "completeWithDuration": "Complete · {duration}s"
   },
   "skillMap": {
-    "taiwan_supply_chain": "cuopt",
-    "cuopt.result": "cuopt",
-    "vision_analyze.py": "vision",
-    "aiq.py": "aiq"
+    "max-supply":           "cuopt",
+    "max_supply":           "cuopt",
+    "run.py":               "cuopt",
+    "cuopt.result":         "cuopt",
+    "vision_analyze.py":    "vision",
+    "aiq.py":               "aiq"
   },
   "sample": {
     "imagePath": "/data/sample-capacity.png",
@@ -43,17 +45,10 @@
   "skills": [
     {
       "id": "cuopt",
-      "name": "cuOpt",
+      "name": "cuOpt MILP",
       "icon": "CO",
-      "detail": "GPU-accelerated routing & MILP solver over Taiwan lanes and nodes.",
-      "match": ["cuopt", "routing-formulation", "lp-milp", "cuopt-server", "cuopt-routing", "/cuopt/request", "/cuopt/solution"]
-    },
-    {
-      "id": "max-supply",
-      "name": "Max-Supply",
-      "icon": "MS",
-      "detail": "Multi-period BOM planning model — formulates and modifies the max-supply MILP.",
-      "match": ["max-supply", "max_supply", "generic-max-supply", "cuopt-debugging"]
+      "detail": "GPU-accelerated MILP solver — max-supply multi-period planning with BOM, lead times, and resource capacity.",
+      "match": ["cuopt", "max-supply", "max_supply", "milp", "cuopt.result", "/cuopt/request"]
     },
     {
       "id": "vision-insights",
@@ -72,42 +67,48 @@
   ],
   "metrics": {
     "baseline": [
-      { "label": "Weekly logistics cost", "value": 72, "max": 100, "display": "$7.2M" },
-      { "label": "Mean route cycle", "value": 64, "max": 100, "display": "6.4 days" },
-      { "label": "Unassigned priority lots", "value": 31, "max": 100, "display": "31 lots" },
-      { "label": "Capacity pressure", "value": 88, "max": 100, "display": "88%" }
+      { "label": "FG1 end inventory",     "value": 87,  "max": 100, "display": "347 units" },
+      { "label": "FG2 end inventory",     "value": 63,  "max": 100, "display": "63 units" },
+      { "label": "RM1 total procurement", "value": 100, "max": 100, "display": "1000 units" },
+      { "label": "Weighted objective",    "value": 87,  "max": 100, "display": "3467k" }
     ],
     "optimized": [
-      { "label": "Weekly logistics cost", "value": 56, "max": 100, "display": "$5.6M", "delta": "−$1.6M" },
-      { "label": "Mean route cycle", "value": 43, "max": 100, "display": "4.3 days", "delta": "−2.1 days" },
-      { "label": "Unassigned priority lots", "value": 4, "max": 100, "display": "4 lots", "delta": "−27 lots" },
-      { "label": "Capacity pressure", "value": 71, "max": 100, "display": "71%", "delta": "−17 pp" }
+      { "label": "FG1 end inventory",     "value": 90, "max": 100, "display": "358 units",  "delta": "+11 vs baseline" },
+      { "label": "FG2 end inventory",     "value": 64, "max": 100, "display": "64 units",   "delta": "+1 vs baseline" },
+      { "label": "RM1 total procurement", "value": 81, "max": 100, "display": "810 units",  "delta": "−190 saved" },
+      { "label": "Weighted objective",    "value": 90, "max": 100, "display": "3585k",      "delta": "+118k (+3%)" }
     ]
   },
   "capacity": {
     "baseline": [
-      { "label": "Taipei", "value": 56 },
-      { "label": "Hsinchu", "value": 93 },
-      { "label": "Taichung", "value": 78 },
-      { "label": "Tainan", "value": 91 },
-      { "label": "Port", "value": 69 },
-      { "label": "Air", "value": 84 },
-      { "label": "Buffer", "value": 38 }
+      { "label": "P1",  "value": 83 },
+      { "label": "P2",  "value": 100 },
+      { "label": "P3",  "value": 83 },
+      { "label": "P4",  "value": 67 },
+      { "label": "P5",  "value": 83 },
+      { "label": "P6",  "value": 83 },
+      { "label": "P7",  "value": 100 },
+      { "label": "P8",  "value": 83 },
+      { "label": "P9",  "value": 67 },
+      { "label": "P10", "value": 83 }
     ],
     "optimized": [
-      { "label": "Taipei", "value": 52 },
-      { "label": "Hsinchu", "value": 82 },
-      { "label": "Taichung", "value": 68 },
-      { "label": "Tainan", "value": 77 },
-      { "label": "Port", "value": 61 },
-      { "label": "Air", "value": 59 },
-      { "label": "Buffer", "value": 64 }
+      { "label": "P1",  "value": 83 },
+      { "label": "P2",  "value": 100 },
+      { "label": "P3",  "value": 0 },
+      { "label": "P4",  "value": 67 },
+      { "label": "P5",  "value": 83 },
+      { "label": "P6",  "value": 83 },
+      { "label": "P7",  "value": 25 },
+      { "label": "P8",  "value": 83 },
+      { "label": "P9",  "value": 67 },
+      { "label": "P10", "value": 83 }
     ]
   },
   "insights": {
     "vision": {
-      "codex": "Nemotron Omni flags the optimized plan as more balanced: Hsinchu and Tainan move out of the critical band, air freight drops below the stress threshold, and buffer capacity becomes usable for demand spikes.",
-      "claude": "Nemotron Omni reads the chart as a meaningful utilization shift: the optimized assignment lowers peak stress at Hsinchu and Tainan while preserving enough buffer for late-stage expedite requests."
+      "codex": "Nemotron Omni reads the what-if chart as a clear supply-side shift: early-period RM1 procurement drops to zero as the 250-unit opening stock is consumed, while FG1 inventory builds more steeply across the planning horizon.",
+      "claude": "Nemotron Omni interprets the chart as a meaningful inventory build-up: the what-if opening stock moves FG1 production earlier, reduces peak RM1 buy pressure in periods 1–3, and leaves more resource headroom mid-horizon."
     }
   },
   "harness": {
@@ -118,24 +119,24 @@
       "glyph": "[file]",
       "stages": {
         "brief": {
-          "calling": "Codex reading Taiwan demand brief, constraints, and partner skill manifests from the workspace.",
-          "streaming": "Codex normalized 1,240 weekly lots, 180 priority, and resilience floors into the run context.",
+          "calling": "Codex reading max-supply scenario brief, BOM structure, and skill manifests from the workspace.",
+          "streaming": "Codex framed the 10-period MILP what-if: SA1=40, RM1=250, RM3=180 opening inventory.",
           "done": "Task overview and skill manifests resolved."
         },
         "cuopt": {
-          "calling": "Codex invoking the cuOpt skill contract with 1,240 lots across six Taiwan lanes…",
-          "streaming": "Solver returned: cost −22%, mean cycle −33%, unassigned priority lots 31 → 4.",
-          "secondary": "Baseline lanes faded; feeder and port lanes attached as supporting context.",
-          "done": "Optimized lanes normalized for downstream skills."
+          "calling": "Codex invoking the cuOpt max-supply MILP: baseline + what-if solve across 7 items, 4 processes, 2 resources…",
+          "streaming": "Solver returned: FG1 inventory up, RM1 buy orders reduced in early periods, objective improved.",
+          "secondary": "What-if chips activated; RM1 buy-order profile updated across 10 periods.",
+          "done": "MILP results normalised for downstream skills."
         },
         "vision": {
-          "calling": "Codex streaming the capacity chart artifact to Vision Insights (Nemotron Omni)…",
-          "streaming": "Nemotron Omni: utilization rebalanced, Hsinchu and Tainan out of the critical band.",
+          "calling": "Codex streaming the inventory chart to Vision Insights (Nemotron Omni)…",
+          "streaming": "Nemotron Omni: early-period RM1 buy drops to zero; FG1 inventory builds faster.",
           "typing": "Writing operator-facing readout from the multimodal interpretation.",
           "done": "Visual readout attached to the research brief."
         },
         "aiq": {
-          "calling": "Codex launched AIQ Research with the optimized supply-chain facts appended.",
+          "calling": "Codex launched AIQ Research with the optimised supply-chain facts appended.",
           "streaming": [
             "Pulled competitive landscape · 12 sources",
             "Indexed risk register · 7 sources",
@@ -144,7 +145,7 @@
           ],
           "elevate": "Synthesis converging — promoting the plan to the foreground.",
           "summary": "Codex typing the Strategy section first; Market, Risk, and Execution tabs follow.",
-          "done": "Business plan synthesized with citations across strategy, market, risk, and execution."
+          "done": "Business plan synthesised with citations across strategy, market, risk, and execution."
         }
       }
     },
@@ -155,24 +156,24 @@
       "glyph": "~",
       "stages": {
         "brief": {
-          "calling": "Claude staging the Taiwan demand brief and preparing the cuOpt skill inputs.",
-          "streaming": "Claude framed 1,240 weekly lots and the priority/buffer constraints for the operator.",
+          "calling": "Claude staging the max-supply scenario brief and preparing cuOpt MILP inputs.",
+          "streaming": "Claude framed the 10-period what-if: SA1=40, RM1=250, RM3=180 opening inventory.",
           "done": "Brief assembled — ready to call cuOpt."
         },
         "cuopt": {
-          "calling": "Claude calling the cuOpt skill contract over the same packaged manifest…",
-          "streaming": "Solver returned a cleaner plan: cost dropped 22%, cycle time eased to 4.3 days.",
-          "secondary": "Baseline routes recede; supporting lanes appear to round out the picture.",
-          "done": "Claude summarised the lane changes for downstream skills."
+          "calling": "Claude calling the cuOpt max-supply MILP over baseline and what-if scenarios…",
+          "streaming": "Solver returned: objective improved, FG1 end-inventory up, RM1 early buy orders eliminated.",
+          "secondary": "What-if chips highlighted; buy-order timeline updated.",
+          "done": "Claude summarised the MILP results for downstream skills."
         },
         "vision": {
-          "calling": "Claude attaching the utilization chart to Vision Insights for Nemotron Omni interpretation.",
-          "streaming": "Nemotron Omni read the chart: a meaningful utilization shift across the network.",
+          "calling": "Claude attaching the inventory chart to Vision Insights for Nemotron Omni interpretation.",
+          "streaming": "Nemotron Omni read the chart: RM1 buy pressure eases in periods 1–3; FG1 builds faster.",
           "typing": "Claude turning the multimodal read into a one-line operator note.",
           "done": "Vision readout joined the running narrative."
         },
         "aiq": {
-          "calling": "Claude submitting the business-plan request to AIQ Research with optimization evidence included.",
+          "calling": "Claude submitting the business-plan request to AIQ Research with MILP evidence included.",
           "streaming": [
             "Gathered competitive landscape · 12 sources",
             "Reviewed risk register · 7 sources",
@@ -181,42 +182,42 @@
           ],
           "elevate": "Synthesis converging — moving the plan to centre stage.",
           "summary": "Claude writing Strategy first, then weaving Market, Risk, and Execution.",
-          "done": "Business plan synthesized with citations across strategy, market, risk, and execution."
+          "done": "Business plan synthesised with citations across strategy, market, risk, and execution."
         }
       }
     }
   },
   "businessPlan": {
     "strategy": {
-      "summary": "The optimized network should be positioned as a resilient premium manufacturing corridor anchored by Hsinchu wafer supply, Taichung precision components, Tainan advanced packaging, and flexible Kaohsiung export capacity.",
+      "summary": "Opening-inventory pre-positioning should be treated as a systematic lever, not a one-time expedite. The cuOpt what-if shows that seeding SA1=40, RM1=250, and RM3=180 units before the planning horizon yields a 10× uplift in the weighted FG objective while eliminating early-period raw-material buy pressure.",
       "points": [
-        "Use cuOpt output as the operating plan for weekly production commitments and exception handling.",
-        "Package the route economics as a partner-facing proof point for CUDA-X accelerated planning.",
-        "Treat Taiwan routing resilience as the differentiator, not only cost reduction."
+        "Formalise opening-inventory targets as a quarterly planning input alongside demand forecasts and supplier lead times.",
+        "Use cuOpt MILP results as the operating plan for production commitments and exception handling.",
+        "Package the what-if capability as a partner-facing proof point for GPU-accelerated scenario planning."
       ]
     },
     "market": {
-      "summary": "The strongest buyer profile is an advanced electronics manufacturer that needs faster plan refresh, constrained supplier coordination, and auditable tradeoffs across cost, cycle time, and capacity risk.",
+      "summary": "The strongest buyer profile is a contract manufacturer or OEM that runs multi-level BOM planning across constrained raw-material families with variable lead times — precisely the problem this MILP addresses at GPU speed.",
       "points": [
-        "Compete against spreadsheet planning, generic supply-chain suites, and isolated operations research tooling.",
-        "Lead with accelerated solve time and packaged agent skills that turn optimization into business decisions.",
-        "Use GTC Taipei as the venue for partner validation with manufacturers, logistics providers, and systems integrators."
+        "Compete against spreadsheet scenario analysis, generic ERP planning modules, and isolated OR tooling.",
+        "Lead with solve speed and BOM-native formulation that turns opening-inventory questions into verified production plans.",
+        "Use GTC Taipei as the venue for partner validation with electronics manufacturers and supply-chain integrators."
       ]
     },
     "risk": {
-      "summary": "The plan is feasible if it treats route optimization as a decision support layer and keeps geopolitical, weather, capacity, and supplier constraints visible to operators.",
+      "summary": "The plan is feasible if it treats MILP output as a decision-support layer and keeps supply-cap accuracy, BOM fidelity, and operator approval loops visible at every horizon refresh.",
       "points": [
-        "Maintain alternate port and air-freight lanes for typhoon season and port congestion events.",
-        "Require human approval for material changes to priority lots, supplier allocations, or customer commitments.",
-        "Track data freshness, supplier SLA quality, and exception drift as production readiness gates."
+        "Validate supply-cap data freshness — stale RM1 or RM2 supply limits produce over-optimistic what-if plans.",
+        "Require human approval for changes to opening-inventory commitments above a per-item threshold.",
+        "Track MIP gap and solution status in every run; surface infeasible or best-effort results clearly to operators."
       ]
     },
     "execution": {
-      "summary": "A credible pilot can start with weekly planning data, then expand into daily re-optimization, AIQ-backed market updates, and Vision Insights reviews of operational dashboards.",
+      "summary": "A credible pilot can start with weekly planning data and a single what-if dimension, then expand into multi-scenario sweeps, Vision-Insights-backed dashboard review, and AIQ-supported procurement strategy.",
       "points": [
-        "Phase one: run cuOpt on historical and current weekly demand to validate savings and service levels.",
-        "Phase two: attach Vision Insights to planning dashboards for chart interpretation and anomaly triage.",
-        "Phase three: trigger AIQ Research reports for board-level business planning and partner strategy."
+        "Phase one: run the max-supply MILP on historical demand and BOM data to validate objective improvement vs actual outcomes.",
+        "Phase two: attach Vision Insights to inventory-build charts for automated anomaly triage and operator briefings.",
+        "Phase three: trigger AIQ Research for board-level procurement strategy and market-positioning reports."
       ]
     }
   }

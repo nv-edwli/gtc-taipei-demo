@@ -1,35 +1,22 @@
-// Pure parsing + transformation for the cuOpt envelope produced by
-// skills/cuopt/cuopt-server-api-python/assets/taiwan_supply_chain/run.py.
+// Pure parsing + transformation for the cuopt.result envelope produced by
+// skills/cuopt/max-supply/run.py.
 //
-// This module is imported by app.js (browser-loaded) AND by tests/cuopt-parser.test.mjs
-// (node:test runner). Keep it DOM-free.
+// Envelope shape:
+//   {kind:"cuopt.result", status, baseline, whatif, delta, opening_stock, explanation}
+//
+// This module is imported by app.js (browser-loaded) AND by tests (node:test).
+// Keep it DOM-free.
 
 export const CUOPT_SCORE_PENALTY = { solved: 0, infeasible: 15, fallback: 20 };
 
-export const CUOPT_TO_UI_NODE = {
-  taipei: "Taipei",
-  hsinchu: "Hsinchu",
-  taichung: "Taichung",
-  tainan: "Tainan",
-  kaohsiung: "Port",
-  taoyuan: "Air"
-};
-
-export function parseCostDisplay(s) {
-  if (typeof s !== "string") return null;
-  const m = s.match(/\$([\d.]+)M/);
-  if (!m) return null;
-  const v = parseFloat(m[1]);
-  return Number.isFinite(v) ? Math.round(v * 1_000_000) : null;
-}
+// ── Predicates ────────────────────────────────────────────────────────────────
 
 export function looksLikeCuoptResult(text) {
   if (!text || typeof text !== "string" || text.length < 40) return false;
   const head = text.slice(0, 400);
-  if (/"kind"\s*:\s*"cuopt\.result"/.test(head)) return true;
-  if (/"selected_lanes"\s*:/.test(head) && /"objective_value"\s*:/.test(head)) return true;
-  return false;
+  return /"kind"\s*:\s*"cuopt\.result"/.test(head);
 }
+
 const VALID_STATUSES = new Set(["solved", "infeasible"]);
 
 export function parseCuoptToolOutput(stdout, isError) {
@@ -49,7 +36,8 @@ export function parseCuoptToolOutput(stdout, isError) {
   if (envelope.kind !== "cuopt.result") {
     return { status: "fallback", reason: "bad_shape" };
   }
-  if (!envelope.metrics || typeof envelope.metrics !== "object") {
+  // For the max-supply envelope, require baseline and whatif blocks
+  if (!envelope.baseline || !envelope.whatif) {
     return { status: "fallback", reason: "bad_shape" };
   }
   if (!VALID_STATUSES.has(envelope.status)) {
@@ -57,162 +45,147 @@ export function parseCuoptToolOutput(stdout, isError) {
   }
   return { status: envelope.status, envelope };
 }
-// ---- Internal helpers ----
 
-function isFiniteNumber(v) {
-  return typeof v === "number" && Number.isFinite(v);
-}
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
+function isNum(v) { return typeof v === "number" && Number.isFinite(v); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
-function fmtSignedMillions(delta) {
-  // delta is negative when cost dropped. We display with the U+2212 minus sign
-  // to match the existing mock display strings ("−$1.6M").
-  const abs = Math.abs(delta) / 1_000_000;
-  const rounded = abs.toFixed(1).replace(/\.0$/, "");
-  return (delta <= 0 ? "−" : "+") + "$" + rounded + "M";
-}
+// ── Metric row builders ───────────────────────────────────────────────────────
+// Each returns { label, value (0-100), display, delta, max: 100, dataSource }.
 
-function fmtSignedDays(delta) {
-  const abs = Math.abs(delta).toFixed(1).replace(/\.0$/, "");
-  return (delta <= 0 ? "−" : "+") + abs + " days";
-}
+// Scale for bar widths:  value = clamp(qty / scale * 100, 0, 100)
+// Calibrated to actual solver output: FG1~350, FG2~65, RM1~1000, obj~3.5M
+const FG1_SCALE   = 400;       // 400 units = full bar
+const FG2_SCALE   = 100;       // 100 units = full bar
+const RM1_MAX_QTY = 1000;      // total RM1 supply over 10 periods
+const OBJ_SCALE   = 4_000_000; // 4 M weighted units = full bar
 
-function fmtSignedInt(delta, suffix) {
-  return (delta <= 0 ? "−" : "+") + Math.abs(delta) + " " + suffix;
-}
-
-function fmtSignedPp(delta) {
-  return (delta <= 0 ? "−" : "+") + Math.abs(delta) + " pp";
-}
-
-// ---- Metric row builders. Each returns { value, display, delta, dataSource }. ----
-
-function metricRowCost(envelope, mockOpt, mockBase) {
-  const usd = envelope?.metrics?.weekly_logistics_cost_usd;
-  if (!isFiniteNumber(usd)) return { ...mockOpt, dataSource: "mock" };
-  const baselineUsd = parseCostDisplay(mockBase.display);
-  const millions = (usd / 1_000_000).toFixed(1).replace(/\.0$/, "");
+function metricFG1(env, mockOpt) {
+  const fg1 = env?.whatif?.fg1_final;
+  const fg1b = env?.baseline?.fg1_final;
+  if (!isNum(fg1)) return { ...mockOpt, dataSource: "mock" };
+  const delta = isNum(fg1b) ? fg1 - fg1b : 0;
   return {
     label: mockOpt.label,
-    max: mockOpt.max,
-    value: clamp(Math.round((usd / (baselineUsd || usd)) * 100), 0, 100),
-    display: "$" + millions + "M",
-    delta: fmtSignedMillions(usd - (baselineUsd || usd)),
+    max: 100,
+    value: clamp(Math.round(fg1 / FG1_SCALE * 100), 0, 100),
+    display: Math.round(fg1) + " units",
+    delta: (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)) + " vs baseline",
     dataSource: "envelope"
   };
 }
 
-function metricRowCycle(envelope, mockOpt, mockBase) {
-  const days = envelope?.metrics?.mean_cycle_days;
-  if (!isFiniteNumber(days)) return { ...mockOpt, dataSource: "mock" };
-  const baseDaysMatch = mockBase.display.match(/([\d.]+)\s*days/);
-  const baseDays = baseDaysMatch ? parseFloat(baseDaysMatch[1]) : days;
-  const rounded = days.toFixed(1).replace(/\.0$/, "");
+function metricFG2(env, mockOpt) {
+  const fg2 = env?.whatif?.fg2_final;
+  const fg2b = env?.baseline?.fg2_final;
+  if (!isNum(fg2)) return { ...mockOpt, dataSource: "mock" };
+  const delta = isNum(fg2b) ? fg2 - fg2b : 0;
   return {
     label: mockOpt.label,
-    max: mockOpt.max,
-    value: clamp(Math.round(days * 10), 0, 100),
-    display: rounded + " days",
-    delta: fmtSignedDays(days - baseDays),
+    max: 100,
+    value: clamp(Math.round(fg2 / FG2_SCALE * 100), 0, 100),
+    display: Math.round(fg2) + " units",
+    delta: (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)) + " vs baseline",
     dataSource: "envelope"
   };
 }
 
-function metricRowUnassigned(envelope, mockOpt, mockBase) {
-  const n = envelope?.metrics?.unassigned_priority_lots;
-  if (!isFiniteNumber(n)) return { ...mockOpt, dataSource: "mock" };
-  const baseMatch = mockBase.display.match(/(\d+)\s*lots/);
-  const baseN = baseMatch ? parseInt(baseMatch[1], 10) : n;
+function metricRM1(env, mockOpt) {
+  const rm1 = env?.whatif?.rm1_buy_total;
+  const rm1b = env?.baseline?.rm1_buy_total;
+  if (!isNum(rm1)) return { ...mockOpt, dataSource: "mock" };
+  const saved = isNum(rm1b) ? rm1b - rm1 : 0;
   return {
     label: mockOpt.label,
-    max: mockOpt.max,
-    value: clamp(Math.round(n), 0, 100),
-    display: Math.round(n) + " lots",
-    delta: fmtSignedInt(n - baseN, "lots"),
+    max: 100,
+    value: clamp(Math.round(rm1 / RM1_MAX_QTY * 100), 0, 100),
+    display: Math.round(rm1) + " units",
+    delta: saved > 0
+      ? "−" + Math.round(saved) + " saved"
+      : (saved < 0 ? "+" + Math.abs(Math.round(saved)) : "—"),
     dataSource: "envelope"
   };
 }
 
-function metricRowPressure(envelope, mockOpt, mockBase) {
-  const p = envelope?.metrics?.peak_capacity_pressure;
-  if (!isFiniteNumber(p)) return { ...mockOpt, dataSource: "mock" };
-  const baseMatch = mockBase.display.match(/(\d+)%/);
-  const basePct = baseMatch ? parseInt(baseMatch[1], 10) : Math.round(p * 100);
-  const pct = Math.round(p * 100);
+function metricObjective(env, mockOpt) {
+  const obj = env?.whatif?.objective;
+  const objb = env?.baseline?.objective;
+  if (!isNum(obj)) return { ...mockOpt, dataSource: "mock" };
+  const delta = isNum(objb) ? obj - objb : 0;
+  const pct = (isNum(objb) && objb > 0) ? Math.round(delta / objb * 100) : 0;
+  const fmt = v => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(Math.round(v));
   return {
     label: mockOpt.label,
-    max: mockOpt.max,
-    value: clamp(pct, 0, 100),
-    display: pct + "%",
-    delta: fmtSignedPp(pct - basePct),
+    max: 100,
+    value: clamp(Math.round(obj / OBJ_SCALE * 100), 0, 100),
+    display: fmt(obj),
+    delta: (delta >= 0 ? "+" : "−") + fmt(Math.abs(delta)) + " (" + (delta >= 0 ? "+" : "−") + Math.abs(pct) + "%)",
     dataSource: "envelope"
   };
 }
 
-// ---- Capacity row builder ----
+// ── Capacity (RM1 buy-order) row builder ──────────────────────────────────────
 
-function buildCapacityRow(mockOptRow, mockBaseRow, envelopeNodeUtil) {
-  if (isFiniteNumber(envelopeNodeUtil)) {
+// Maps one period's buy quantity to a 0-100 bar pct.
+// Max RM1 supply in any period is 120 units (period 2 / 7).
+const RM1_PERIOD_MAX = 120;
+
+function buildCapacityRows(env, mockOptRows, mockBaseRows) {
+  const rm1Whatif   = env?.whatif?.rm1_buy_by_period;
+  const rm1Baseline = env?.baseline?.rm1_buy_by_period;
+  if (!Array.isArray(rm1Whatif) || rm1Whatif.length < 10) {
+    return mockOptRows.map((row, i) => ({
+      label:      row.label,
+      value:      row.value,
+      baseline:   mockBaseRows[i].value,
+      dataSource: "mock"
+    }));
+  }
+  return rm1Whatif.map((qty, i) => {
+    const base = Array.isArray(rm1Baseline) ? (rm1Baseline[i] || 0) : 0;
     return {
-      label: mockOptRow.label,
-      value: clamp(Math.round(envelopeNodeUtil * 100), 0, 100),
-      baseline: mockBaseRow.value,
+      label:      "P" + (i + 1),
+      value:      clamp(Math.round(qty  / RM1_PERIOD_MAX * 100), 0, 100),
+      baseline:   clamp(Math.round(base / RM1_PERIOD_MAX * 100), 0, 100),
       dataSource: "envelope"
     };
-  }
-  return {
-    label: mockOptRow.label,
-    value: mockOptRow.value,
-    baseline: mockBaseRow.value,
-    dataSource: "mock"
-  };
+  });
 }
 
-// Reverse the CUOPT_TO_UI_NODE map so UI labels can pick the right envelope node.
-const UI_TO_CUOPT_NODE = Object.fromEntries(
-  Object.entries(CUOPT_TO_UI_NODE).map(([k, v]) => [v, k])
-);
-
-function envelopeCapacityFor(envelope, uiLabel) {
-  const cuoptName = UI_TO_CUOPT_NODE[uiLabel];
-  if (!cuoptName) return null;
-  const entry = (envelope?.capacity || []).find(c => c.node === cuoptName);
-  return entry ? entry.utilization : null;
-}
-
-// ---- Exported transformers ----
+// ── Exported transformers ─────────────────────────────────────────────────────
 
 export function cuoptEnvelopeToUiValues(envelope, data) {
-  const mockMetricsOpt = data.metrics.optimized;
-  const mockMetricsBase = data.metrics.baseline;
+  const mockOpt  = data.metrics.optimized;
+  const mockBase = data.metrics.baseline;
+
   const metricRows = [
-    metricRowCost(envelope, mockMetricsOpt[0], mockMetricsBase[0]),
-    metricRowCycle(envelope, mockMetricsOpt[1], mockMetricsBase[1]),
-    metricRowUnassigned(envelope, mockMetricsOpt[2], mockMetricsBase[2]),
-    metricRowPressure(envelope, mockMetricsOpt[3], mockMetricsBase[3])
+    metricFG1(envelope, mockOpt[0]),
+    metricFG2(envelope, mockOpt[1]),
+    metricRM1(envelope, mockOpt[2]),
+    metricObjective(envelope, mockOpt[3]),
   ];
 
-  const mockCapOpt = data.capacity.optimized;
-  const mockCapBase = data.capacity.baseline;
-  const capacityRows = mockCapOpt.map((row, i) =>
-    buildCapacityRow(row, mockCapBase[i], envelopeCapacityFor(envelope, row.label))
+  const capacityRows = buildCapacityRows(
+    envelope,
+    data.capacity.optimized,
+    data.capacity.baseline
   );
 
   return {
-    status: envelope.status,
-    explanation: envelope.explanation || "",
+    status:       envelope.status,
+    explanation:  envelope.explanation || "",
     metricRows,
-    capacityRows
+    capacityRows,
   };
 }
 
 export function mockToUiValues(data) {
   const metricRows = data.metrics.optimized.map(row => ({ ...row, dataSource: "mock" }));
   const capacityRows = data.capacity.optimized.map((row, i) => ({
-    label: row.label,
-    value: row.value,
-    baseline: data.capacity.baseline[i].value,
+    label:      row.label,
+    value:      row.value,
+    baseline:   data.capacity.baseline[i].value,
     dataSource: "mock"
   }));
   return { status: "fallback", explanation: "", metricRows, capacityRows };

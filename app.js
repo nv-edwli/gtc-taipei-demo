@@ -418,10 +418,10 @@ function applyIdleState() {
   els.runStatus.textContent = "Ready";
   els.consoleDot.classList.remove("is-running");
   els.harnessToggle.removeAttribute("aria-disabled");
-  els.activeRoute.classList.remove("is-solved");
-  els.baselineRoute.classList.remove("is-faded", "is-solving");
-  els.feederRoute.classList.remove("is-revealed");
-  els.portRoute.classList.remove("is-revealed");
+  els.activeRoute?.classList.remove("is-solved");
+  els.baselineRoute?.classList.remove("is-faded", "is-solving");
+  els.feederRoute?.classList.remove("is-revealed");
+  els.portRoute?.classList.remove("is-revealed");
   els.mapStatus.classList.remove("is-solving", "is-solved");
   els.mapStatus.classList.add("is-baseline");
   els.mapStatusText.textContent = state.data.mapStatus.baseline;
@@ -1029,7 +1029,15 @@ function buildPlanBodyHtml() {
   const fullReportBlock = (state.planReportRaw && state.planSections && state.planSections[state.activePlan])
     ? `
       <details class="plan-full-report"${state.planFullReportOpen ? " open" : ""}>
-        <summary>Full research report (${state.planReportRaw.length.toLocaleString()} chars)</summary>
+        <summary>
+          <span class="full-summary-label">Full research report (${state.planReportRaw.length.toLocaleString()} chars)</span>
+          <button class="print-pdf-button" type="button" data-print-pdf="plan" aria-label="Print research report as PDF">
+            <svg class="print-pdf-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3h10v5H7zM5 8h14a2 2 0 0 1 2 2v6h-4v4H7v-4H3v-6a2 2 0 0 1 2-2zm2 10h10v3H7zm12-6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+            </svg>
+            <span>Print as PDF</span>
+          </button>
+        </summary>
         <div class="plan-full-report-body">${formatPlanText(state.planReportRaw)}</div>
       </details>
     `
@@ -1061,6 +1069,16 @@ function wirePlanFullReportToggle(scope) {
   details.addEventListener("toggle", () => {
     state.planFullReportOpen = details.open;
   });
+  const printBtn = details.querySelector('[data-print-pdf="plan"]');
+  if (printBtn) {
+    printBtn.addEventListener("click", (e) => {
+      // Clicks inside <summary> toggle <details> by default — suppress so the
+      // user's open/closed choice stays put when they hit the print button.
+      e.preventDefault();
+      e.stopPropagation();
+      printAsPdf("AIQ Research — Full Report", state.planReportRaw || "");
+    });
+  }
 }
 
 function renderPlanLive() {
@@ -1433,11 +1451,13 @@ function handleAssistantText({ stage, text }) {
 
 function handleToolInvoked({ id, name, input, stage }) {
   if (stage === "cuopt") {
-    setStageSubstate("cuopt", "calling");
-    applyMapRoute("shimmer");
-    setMapStatus("solving");
-    renderMetricsSkeleton();
-    renderCapacitySkeleton();
+    if (!state.cuoptResolved) {
+      setStageSubstate("cuopt", "calling");
+      applyMapRoute("shimmer");
+      setMapStatus("solving");
+      renderMetricsSkeleton();
+      renderCapacitySkeleton();
+    }
   } else if (stage === "vision") {
     setStageSubstate("vision", "calling");
     els.visionConfidence.textContent = "analyzing";
@@ -1490,7 +1510,16 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
       return;
     }
     const result = parseCuoptToolOutput(stdout, isError);
-    applyCuoptResult(result);
+// Don't commit cuoptResolved on parse_failed — a false-positive sta
+        //   +ge match                                                                
+     // (e.g. reading a skill file whose path contains "max-supply/run.py
+          // +") should                                                               
+         // not block the real cuopt result from being processed.            
+    if (result.status === "fallback" && result.reason === "parse_failed") {
+	    addConsoleEntry("cuopt", "cuopt stage tool returned unparseable output — waiting for real result.");
+	    return;                                                           
+    }
+	  applyCuoptResult(result);
     return;
   }
 
@@ -1502,6 +1531,18 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     applyCuoptResult(result);
     state.cuoptBackgroundBashId = null;
     addConsoleEntry("cuopt", "Captured backgrounded cuopt output.");
+  }
+
+  // Layer 4: stage inference missed the cuopt command (e.g. the STAGE_HINTS
+  // didn't match the exact command string). Scan every tool result for the
+  // cuopt.result envelope shape as a final safety net.
+  if (!state.cuoptResolved && !isError && stage !== "cuopt" &&
+      looksLikeCuoptResult(stdout)) {
+    const result = parseCuoptToolOutput(stdout, false);
+    if (result.status !== "fallback") {
+      applyCuoptResult(result);
+      addConsoleEntry("cuopt", "Captured cuopt result (stage-hint miss).");
+    }
   }
 
   if (stage === "vision" && !isError) {
@@ -1872,12 +1913,28 @@ function updateVisionCopy(text) {
     if (fullText) {
       els.visionFullRow.innerHTML = `
         <details class="vision-full-details" open>
-          <summary>Full analysis (${fullText.length.toLocaleString()} chars)</summary>
+          <summary>
+            <span class="full-summary-label">Full analysis (${fullText.length.toLocaleString()} chars)</span>
+            <button class="print-pdf-button" type="button" data-print-pdf="vision" aria-label="Print vision analysis as PDF">
+              <svg class="print-pdf-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 3h10v5H7zM5 8h14a2 2 0 0 1 2 2v6h-4v4H7v-4H3v-6a2 2 0 0 1 2-2zm2 10h10v3H7zm12-6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+              </svg>
+              <span>Print as PDF</span>
+            </button>
+          </summary>
           <pre class="vision-full-body"></pre>
         </details>
       `;
       const fullBodyEl = els.visionFullRow.querySelector(".vision-full-body");
       if (fullBodyEl) fullBodyEl.textContent = fullText;   // <pre>+textContent preserves tables/markdown
+      const printBtn = els.visionFullRow.querySelector('[data-print-pdf="vision"]');
+      if (printBtn) {
+        printBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          printAsPdf("Vision Insights — Full Analysis", state.visionFullText || "");
+        });
+      }
       els.visionFullRow.hidden = false;
     } else {
       els.visionFullRow.innerHTML = "";
@@ -2097,15 +2154,15 @@ function setMapStatus(name) {
 
 function applyMapRoute(action) {
   switch (action) {
-    case "shimmer": els.baselineRoute.classList.add("is-solving"); break;
+    case "shimmer": els.baselineRoute?.classList.add("is-solving"); break;
     case "reveal-active":
-      els.activeRoute.classList.add("is-solved");
-      els.baselineRoute.classList.remove("is-solving");
+      els.activeRoute?.classList.add("is-solved");
+      els.baselineRoute?.classList.remove("is-solving");
       break;
-    case "fade-baseline": els.baselineRoute.classList.add("is-faded"); break;
+    case "fade-baseline": els.baselineRoute?.classList.add("is-faded"); break;
     case "reveal-supports":
-      els.feederRoute.classList.add("is-revealed");
-      els.portRoute.classList.add("is-revealed");
+      els.feederRoute?.classList.add("is-revealed");
+      els.portRoute?.classList.add("is-revealed");
       break;
   }
 }
@@ -2542,6 +2599,198 @@ function cssEscape(s) {
   if (s == null) return "";
   if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(String(s));
   return String(s).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+}
+
+/* ============================================================
+ * Print-as-PDF
+ * ============================================================ */
+
+// Minimal markdown → HTML. Covers the subset that aiq.py and vision_analyze.py
+// actually emit: ATX headings, *italic*/**bold**, `code`, bullet & numeric
+// lists, links, horizontal rules, blank-line paragraphs. Anything more exotic
+// (tables, fenced code blocks) prints as plain text — fine for the demo.
+function renderMarkdownForPrint(text) {
+  if (!text) return "";
+  const inline = (s) => escapeHtml(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+
+  const lines = text.split("\n");
+  const out = [];
+  let listKind = null;       // "ul" | "ol" | null
+  let paraBuf = [];
+
+  const flushPara = () => {
+    if (!paraBuf.length) return;
+    out.push("<p>" + paraBuf.map(inline).join("<br>") + "</p>");
+    paraBuf = [];
+  };
+  const closeList = () => {
+    if (listKind) { out.push(`</${listKind}>`); listKind = null; }
+  };
+  const openList = (kind) => {
+    if (listKind === kind) return;
+    closeList();
+    out.push(`<${kind}>`);
+    listKind = kind;
+  };
+
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    if (!line.trim()) { flushPara(); closeList(); continue; }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushPara(); closeList();
+      out.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`);
+      continue;
+    }
+
+    if (/^---+$|^\*\*\*+$/.test(line.trim())) {
+      flushPara(); closeList();
+      out.push("<hr>");
+      continue;
+    }
+
+    const ul = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (ul) {
+      flushPara(); openList("ul");
+      out.push(`<li>${inline(ul[1])}</li>`);
+      continue;
+    }
+
+    const ol = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (ol) {
+      flushPara(); openList("ol");
+      out.push(`<li>${inline(ol[1])}</li>`);
+      continue;
+    }
+
+    closeList();
+    paraBuf.push(line);
+  }
+  flushPara(); closeList();
+  return out.join("\n");
+}
+
+// Open a new window with the text rendered as styled HTML and pop the browser
+// print dialog. The user picks "Save as PDF" (or any printer) from there —
+// every modern browser supports virtual-PDF printing natively, so no library
+// or server round-trip is needed.
+function printAsPdf(title, text) {
+  if (!text || !text.trim()) {
+    showToast("warn", "Nothing to print yet — wait for the analysis to finish.");
+    return;
+  }
+
+  const win = window.open("", "_blank", "width=960,height=820,noopener=no");
+  if (!win) {
+    showToast("error", "Pop-up was blocked. Allow pop-ups for this site to print as PDF.");
+    return;
+  }
+
+  const body = renderMarkdownForPrint(text);
+  const stamp = new Date().toLocaleString();
+  const doc = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  @page { margin: 18mm 16mm; }
+  html, body { background: #ffffff; color: #111; }
+  body {
+    margin: 0;
+    padding: 28px 36px 40px;
+    font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+    font-size: 11.5pt;
+    line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  header.pdf-head {
+    border-bottom: 2px solid #76b900;
+    padding-bottom: 10px;
+    margin-bottom: 22px;
+  }
+  header.pdf-head .pdf-eyebrow {
+    display: block;
+    font-size: 8.5pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #76b900;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  header.pdf-head h1 {
+    margin: 0 0 4px;
+    font-size: 18pt;
+    font-weight: 700;
+    color: #111;
+  }
+  header.pdf-head .pdf-meta {
+    font-size: 9pt;
+    color: #555;
+  }
+  main.pdf-body h1 { font-size: 16pt; margin: 18px 0 8px; color: #111; }
+  main.pdf-body h2 { font-size: 13.5pt; margin: 16px 0 6px; color: #1f2a17; border-bottom: 1px solid #e1e6da; padding-bottom: 3px; }
+  main.pdf-body h3 { font-size: 11.5pt; margin: 14px 0 4px; color: #2a3922; }
+  main.pdf-body h4, main.pdf-body h5, main.pdf-body h6 { font-size: 11pt; margin: 12px 0 3px; color: #2a3922; }
+  main.pdf-body p { margin: 0 0 9px; }
+  main.pdf-body ul, main.pdf-body ol { margin: 0 0 10px 0; padding-left: 22px; }
+  main.pdf-body li { margin: 2px 0; }
+  main.pdf-body strong { color: #111; }
+  main.pdf-body em { color: #2a3922; }
+  main.pdf-body a { color: #3a6f00; text-decoration: underline; word-break: break-word; }
+  main.pdf-body code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9.5pt;
+    background: #f4f6f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: #2a3922;
+  }
+  main.pdf-body hr { border: 0; border-top: 1px solid #d8ded0; margin: 14px 0; }
+  footer.pdf-foot {
+    margin-top: 28px;
+    padding-top: 10px;
+    border-top: 1px solid #d8ded0;
+    font-size: 8.5pt;
+    color: #777;
+  }
+  @media print {
+    body { padding: 0; }
+    header.pdf-head { page-break-after: avoid; }
+    main.pdf-body h1, main.pdf-body h2, main.pdf-body h3 { page-break-after: avoid; }
+    main.pdf-body p, main.pdf-body li { orphans: 3; widows: 3; }
+  }
+</style>
+</head>
+<body>
+  <header class="pdf-head">
+    <span class="pdf-eyebrow">NVIDIA CUDA-X · GTC Taipei supply-chain demo</span>
+    <h1>${escapeHtml(title)}</h1>
+    <div class="pdf-meta">Generated ${escapeHtml(stamp)}</div>
+  </header>
+  <main class="pdf-body">${body}</main>
+  <footer class="pdf-foot">Printed from the GTC Taipei supply-chain demo — agent-generated content. Verify before distributing.</footer>
+</body>
+</html>`;
+
+  win.document.open();
+  win.document.write(doc);
+  win.document.close();
+
+  const fire = () => {
+    try { win.focus(); win.print(); } catch (_) { /* user can hit ctrl+p */ }
+  };
+  if (win.document.readyState === "complete") {
+    setTimeout(fire, 250);
+  } else {
+    win.addEventListener("load", () => setTimeout(fire, 150));
+  }
 }
 
 /* ============================================================

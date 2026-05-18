@@ -2,36 +2,25 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as cuopt from "../app-cuopt.mjs";
 
+// ── Module surface ────────────────────────────────────────────────────────────
+
 test("module exports the expected surface", () => {
   assert.equal(typeof cuopt.parseCuoptToolOutput, "function");
   assert.equal(typeof cuopt.cuoptEnvelopeToUiValues, "function");
   assert.equal(typeof cuopt.mockToUiValues, "function");
   assert.equal(typeof cuopt.looksLikeCuoptResult, "function");
-  assert.equal(typeof cuopt.parseCostDisplay, "function");
   assert.deepEqual(cuopt.CUOPT_SCORE_PENALTY, { solved: 0, infeasible: 15, fallback: 20 });
 });
 
-test("parseCostDisplay extracts dollars-in-millions from display string", () => {
-  assert.equal(cuopt.parseCostDisplay("$7.2M"), 7_200_000);
-  assert.equal(cuopt.parseCostDisplay("$5.6M"), 5_600_000);
-  assert.equal(cuopt.parseCostDisplay("$10M"), 10_000_000);
-  assert.equal(cuopt.parseCostDisplay("$1.25M"), 1_250_000);
-});
-
-test("parseCostDisplay returns null on unrecognised format", () => {
-  assert.equal(cuopt.parseCostDisplay("nope"), null);
-  assert.equal(cuopt.parseCostDisplay(""), null);
-  assert.equal(cuopt.parseCostDisplay(null), null);
-  assert.equal(cuopt.parseCostDisplay(undefined), null);
-});
+// ── looksLikeCuoptResult ──────────────────────────────────────────────────────
 
 test("looksLikeCuoptResult matches by kind marker", () => {
-  const text = '{"kind":"cuopt.result","status":"solved","selected_lanes":[]}';
+  const text = '{"kind":"cuopt.result","status":"solved","baseline":{},"whatif":{}}';
   assert.equal(cuopt.looksLikeCuoptResult(text), true);
 });
 
-test("looksLikeCuoptResult matches by combined fields", () => {
-  const text = '{"status":"solved","selected_lanes":[{"a":1}],"objective_value":42.5}';
+test("looksLikeCuoptResult matches with whitespace around colon", () => {
+  const text = '{ "kind" : "cuopt.result", "status": "solved" }';
   assert.equal(cuopt.looksLikeCuoptResult(text), true);
 });
 
@@ -40,36 +29,89 @@ test("looksLikeCuoptResult rejects short / empty / unrelated text", () => {
   assert.equal(cuopt.looksLikeCuoptResult(null), false);
   assert.equal(cuopt.looksLikeCuoptResult("hello world"), false);
   assert.equal(cuopt.looksLikeCuoptResult('{"some":"json","but":"unrelated"}'), false);
+  // old VRP format — no kind marker
+  assert.equal(
+    cuopt.looksLikeCuoptResult(
+      '{"status":"solved","selected_lanes":[{"a":1}],"objective_value":42.5}'
+    ),
+    false
+  );
 });
+
+// ── Shared test fixtures ──────────────────────────────────────────────────────
 
 const SOLVED_ENVELOPE = {
   kind: "cuopt.result",
   status: "solved",
-  objective_value: 4321.5,
-  selected_lanes: [
-    { from: "taipei", to: "hsinchu", mode: "truck", weekly_lots: 420 }
-  ],
-  metrics: {
-    weekly_logistics_cost_usd: 5_600_000,
-    mean_cycle_days: 4.3,
-    unassigned_priority_lots: 4,
-    peak_capacity_pressure: 0.71
+  baseline: {
+    objective: 1_000_000,
+    fg1_final: 200,
+    fg2_final: 50,
+    fg1_inv_by_period:   [0,0,0,0,0,0,0,0,0,200],
+    fg2_inv_by_period:   [0,0,0,0,0,0,0,0,0,50],
+    rm1_buy_by_period:   [100,100,100,100,100,100,100,100,100,100],
+    rm2_buy_by_period:   [80,80,80,80,80,80,80,80,80,80],
+    rm1_buy_total: 1000,
+    rm2_buy_total: 800,
+    res1_util_by_period: [90,90,90,90,90,90,90,90,90,90],
+    res2_util_by_period: [80,80,80,80,80,80,80,80,80,80]
   },
-  capacity: [
-    { node: "hsinchu", utilization: 0.82 },
-    { node: "taichung", utilization: 0.68 },
-    { node: "tainan", utilization: 0.77 },
-    { node: "kaohsiung", utilization: 0.61 },
-    { node: "taoyuan", utilization: 0.59 }
-  ],
-  explanation: "Solved on cuOpt with 6 vehicles across 5 lanes."
+  whatif: {
+    objective: 1_200_000,
+    fg1_final: 220,
+    fg2_final: 52,
+    fg1_inv_by_period:   [0,0,0,0,0,0,0,0,0,220],
+    fg2_inv_by_period:   [0,0,0,0,0,0,0,0,0,52],
+    rm1_buy_by_period:   [100,120,0,80,100,100,30,100,80,100],
+    rm2_buy_by_period:   [80,80,80,80,80,80,80,80,80,80],
+    rm1_buy_total: 810,
+    rm2_buy_total: 800,
+    res1_util_by_period: [90,90,90,90,90,90,90,90,90,90],
+    res2_util_by_period: [80,80,80,80,80,80,80,80,80,80]
+  },
+  delta: { objective: 200_000, fg1_final: 20, fg2_final: 2, rm1_buy_total: -190 },
+  opening_stock: { SA1: 40, RM1: 250, RM3: 180 },
+  explanation: "Opening stock lifts objective."
 };
 const SOLVED_JSON = JSON.stringify(SOLVED_ENVELOPE);
+
+const FIXTURE_DATA = {
+  metrics: {
+    baseline: [
+      { label: "FG1 end inventory",     value: 87,  max: 100, display: "347 units" },
+      { label: "FG2 end inventory",     value: 63,  max: 100, display: "63 units" },
+      { label: "RM1 total procurement", value: 100, max: 100, display: "1000 units" },
+      { label: "Weighted objective",    value: 87,  max: 100, display: "3467k" }
+    ],
+    optimized: [
+      { label: "FG1 end inventory",     value: 90, max: 100, display: "358 units",  delta: "+11 vs baseline" },
+      { label: "FG2 end inventory",     value: 64, max: 100, display: "64 units",   delta: "+1 vs baseline" },
+      { label: "RM1 total procurement", value: 81, max: 100, display: "810 units",  delta: "−190 saved" },
+      { label: "Weighted objective",    value: 90, max: 100, display: "3585k",      delta: "+118k (+3%)" }
+    ]
+  },
+  capacity: {
+    baseline: [
+      { label: "P1",  value: 83 }, { label: "P2",  value: 100 }, { label: "P3",  value: 83 },
+      { label: "P4",  value: 67 }, { label: "P5",  value: 83  }, { label: "P6",  value: 83 },
+      { label: "P7",  value: 100 }, { label: "P8", value: 83  }, { label: "P9",  value: 67 },
+      { label: "P10", value: 83 }
+    ],
+    optimized: [
+      { label: "P1",  value: 83 }, { label: "P2",  value: 100 }, { label: "P3",  value: 0  },
+      { label: "P4",  value: 67 }, { label: "P5",  value: 83  }, { label: "P6",  value: 83 },
+      { label: "P7",  value: 25 }, { label: "P8",  value: 83  }, { label: "P9",  value: 67 },
+      { label: "P10", value: 83 }
+    ]
+  }
+};
+
+// ── parseCuoptToolOutput ──────────────────────────────────────────────────────
 
 test("parseCuoptToolOutput: clean solved envelope", () => {
   const result = cuopt.parseCuoptToolOutput(SOLVED_JSON, false);
   assert.equal(result.status, "solved");
-  assert.equal(result.envelope.metrics.peak_capacity_pressure, 0.71);
+  assert.equal(result.envelope.whatif.fg1_final, 220);
 });
 
 test("parseCuoptToolOutput: infeasible envelope still parses", () => {
@@ -112,9 +154,8 @@ test("parseCuoptToolOutput: bad_shape on JSON missing kind", () => {
   assert.equal(result.reason, "bad_shape");
 });
 
-test("parseCuoptToolOutput: bad_shape on JSON missing metrics", () => {
-  const env = { ...SOLVED_ENVELOPE };
-  delete env.metrics;
+test("parseCuoptToolOutput: bad_shape on JSON missing baseline/whatif", () => {
+  const env = { kind: "cuopt.result", status: "solved" };
   const result = cuopt.parseCuoptToolOutput(JSON.stringify(env), false);
   assert.equal(result.status, "fallback");
   assert.equal(result.reason, "bad_shape");
@@ -138,138 +179,110 @@ test("parseCuoptToolOutput: tolerates leading whitespace", () => {
   assert.equal(result.status, "solved");
 });
 
-const FIXTURE_DATA = {
-  metrics: {
-    baseline: [
-      { label: "Weekly logistics cost",   value: 72, max: 100, display: "$7.2M" },
-      { label: "Mean route cycle",        value: 64, max: 100, display: "6.4 days" },
-      { label: "Unassigned priority lots", value: 31, max: 100, display: "31 lots" },
-      { label: "Capacity pressure",       value: 88, max: 100, display: "88%" }
-    ],
-    optimized: [
-      { label: "Weekly logistics cost",   value: 56, max: 100, display: "$5.6M",    delta: "−$1.6M" },
-      { label: "Mean route cycle",        value: 43, max: 100, display: "4.3 days", delta: "−2.1 days" },
-      { label: "Unassigned priority lots", value: 4,  max: 100, display: "4 lots",   delta: "−27 lots" },
-      { label: "Capacity pressure",       value: 71, max: 100, display: "71%",      delta: "−17 pp" }
-    ]
-  },
-  capacity: {
-    baseline: [
-      { label: "Taipei", value: 56 }, { label: "Hsinchu", value: 93 },
-      { label: "Taichung", value: 78 }, { label: "Tainan", value: 91 },
-      { label: "Port", value: 69 }, { label: "Air", value: 84 }, { label: "Buffer", value: 38 }
-    ],
-    optimized: [
-      { label: "Taipei", value: 52 }, { label: "Hsinchu", value: 82 },
-      { label: "Taichung", value: 68 }, { label: "Tainan", value: 77 },
-      { label: "Port", value: 61 }, { label: "Air", value: 59 }, { label: "Buffer", value: 64 }
-    ]
-  }
-};
+// ── mockToUiValues ────────────────────────────────────────────────────────────
 
 test("mockToUiValues returns the data.metrics.optimized rows as metricRows", () => {
   const ui = cuopt.mockToUiValues(FIXTURE_DATA);
   assert.equal(ui.status, "fallback");
   assert.equal(ui.explanation, "");
   assert.equal(ui.metricRows.length, 4);
-  assert.equal(ui.metricRows[0].display, "$5.6M");
-  assert.equal(ui.metricRows[0].delta, "−$1.6M");
+  assert.equal(ui.metricRows[0].display, "358 units");
+  assert.equal(ui.metricRows[0].delta, "+11 vs baseline");
   assert.equal(ui.metricRows[0].dataSource, "mock");
 });
 
-test("mockToUiValues returns 7 capacityRows with baseline + value", () => {
+test("mockToUiValues returns 10 capacityRows with baseline + value", () => {
   const ui = cuopt.mockToUiValues(FIXTURE_DATA);
-  assert.equal(ui.capacityRows.length, 7);
-  assert.deepEqual(ui.capacityRows[0], { label: "Taipei", value: 52, baseline: 56, dataSource: "mock" });
-  assert.deepEqual(ui.capacityRows[6], { label: "Buffer", value: 64, baseline: 38, dataSource: "mock" });
+  assert.equal(ui.capacityRows.length, 10);
+  assert.deepEqual(ui.capacityRows[0], { label: "P1", value: 83, baseline: 83, dataSource: "mock" });
+  assert.deepEqual(ui.capacityRows[2], { label: "P3", value: 0,  baseline: 83, dataSource: "mock" });
 });
+
+// ── cuoptEnvelopeToUiValues ───────────────────────────────────────────────────
 
 test("cuoptEnvelopeToUiValues maps a clean solved envelope to UI rows", () => {
   const ui = cuopt.cuoptEnvelopeToUiValues(SOLVED_ENVELOPE, FIXTURE_DATA);
   assert.equal(ui.status, "solved");
-  assert.equal(ui.explanation, "Solved on cuOpt with 6 vehicles across 5 lanes.");
+  assert.equal(ui.explanation, "Opening stock lifts objective.");
 
-  // Metric row 0: cost = $5.6M, baseline = $7.2M → delta = "−$1.6M"
-  assert.equal(ui.metricRows[0].display, "$5.6M");
-  assert.equal(ui.metricRows[0].delta, "−$1.6M");
+  // FG1: whatif=220, baseline=200 → value=round(220/400*100)=55, delta="+20 vs baseline"
+  assert.equal(ui.metricRows[0].value, 55);
+  assert.equal(ui.metricRows[0].display, "220 units");
+  assert.equal(ui.metricRows[0].delta, "+20 vs baseline");
   assert.equal(ui.metricRows[0].dataSource, "envelope");
-  // Bar value = round(5_600_000 / 7_200_000 * 100) = 78
-  assert.equal(ui.metricRows[0].value, 78);
 
-  // Metric row 1: cycle 4.3d → value 43
-  assert.equal(ui.metricRows[1].value, 43);
-  assert.equal(ui.metricRows[1].display, "4.3 days");
-  assert.equal(ui.metricRows[1].delta, "−2.1 days");
+  // FG2: whatif=52, baseline=50 → value=52, delta="+2 vs baseline"
+  assert.equal(ui.metricRows[1].value, 52);
+  assert.equal(ui.metricRows[1].display, "52 units");
+  assert.equal(ui.metricRows[1].delta, "+2 vs baseline");
 
-  // Metric row 2: unassigned 4
-  assert.equal(ui.metricRows[2].value, 4);
-  assert.equal(ui.metricRows[2].display, "4 lots");
-  assert.equal(ui.metricRows[2].delta, "−27 lots");
+  // RM1: whatif=810, baseline=1000 → value=81; saved=190 → "−190 saved"
+  assert.equal(ui.metricRows[2].value, 81);
+  assert.equal(ui.metricRows[2].display, "810 units");
+  assert.equal(ui.metricRows[2].delta, "−190 saved");
 
-  // Metric row 3: capacity pressure 71%
-  assert.equal(ui.metricRows[3].value, 71);
-  assert.equal(ui.metricRows[3].display, "71%");
-  assert.equal(ui.metricRows[3].delta, "−17 pp");
+  // Objective: whatif=1200000, baseline=1000000 → value=30, delta="+200k (+20%)"
+  assert.equal(ui.metricRows[3].value, 30);
+  assert.equal(ui.metricRows[3].display, "1200k");
+  assert.equal(ui.metricRows[3].delta, "+200k (+20%)");
 
-  // Capacity rows: 7 total, taipei + buffer from mock, others from envelope
-  assert.equal(ui.capacityRows.length, 7);
-  assert.equal(ui.capacityRows[0].dataSource, "mock");          // Taipei
-  assert.equal(ui.capacityRows[1].value, 82);                   // Hsinchu (envelope)
-  assert.equal(ui.capacityRows[1].dataSource, "envelope");
-  assert.equal(ui.capacityRows[4].value, 61);                   // Port = kaohsiung
-  assert.equal(ui.capacityRows[5].value, 59);                   // Air = taoyuan
-  assert.equal(ui.capacityRows[6].dataSource, "mock");          // Buffer
+  // Capacity: 10 rows from whatif.rm1_buy_by_period
+  assert.equal(ui.capacityRows.length, 10);
+  assert.equal(ui.capacityRows[0].label, "P1");
+  assert.equal(ui.capacityRows[0].dataSource, "envelope");
+  // P3 = 0 units → value = 0
+  assert.equal(ui.capacityRows[2].value, 0);
+  // P7 = 30 units → value = round(30/120*100) = 25
+  assert.equal(ui.capacityRows[6].value, 25);
 });
 
 test("cuoptEnvelopeToUiValues falls back per-key when envelope metric missing", () => {
   const env = JSON.parse(JSON.stringify(SOLVED_ENVELOPE));
-  delete env.metrics.mean_cycle_days;
+  delete env.whatif.fg2_final;
   const ui = cuopt.cuoptEnvelopeToUiValues(env, FIXTURE_DATA);
-  // Row 0 still envelope-sourced
+  // Row 0 (FG1) still envelope-sourced
   assert.equal(ui.metricRows[0].dataSource, "envelope");
-  // Row 1 (cycle) falls back to mock optimized
-  assert.equal(ui.metricRows[1].display, "4.3 days");
+  // Row 1 (FG2) falls back to mock optimized
+  assert.equal(ui.metricRows[1].display, "64 units");
   assert.equal(ui.metricRows[1].dataSource, "mock");
 });
 
 test("cuoptEnvelopeToUiValues falls back per-key when envelope metric is NaN", () => {
   const env = JSON.parse(JSON.stringify(SOLVED_ENVELOPE));
-  env.metrics.weekly_logistics_cost_usd = "not a number";
+  env.whatif.fg1_final = "not a number";
   const ui = cuopt.cuoptEnvelopeToUiValues(env, FIXTURE_DATA);
   assert.equal(ui.metricRows[0].dataSource, "mock");
-  assert.equal(ui.metricRows[0].display, "$5.6M");
+  assert.equal(ui.metricRows[0].display, "358 units");
 });
 
-test("cuoptEnvelopeToUiValues handles missing capacity[] (all mock)", () => {
+test("cuoptEnvelopeToUiValues handles missing capacity array (all mock)", () => {
   const env = JSON.parse(JSON.stringify(SOLVED_ENVELOPE));
-  env.capacity = [];
+  delete env.whatif.rm1_buy_by_period;
   const ui = cuopt.cuoptEnvelopeToUiValues(env, FIXTURE_DATA);
   for (const row of ui.capacityRows) {
     assert.equal(row.dataSource, "mock");
   }
 });
 
-test("cuoptEnvelopeToUiValues handles partial capacity[] (per-row fallback)", () => {
+test("cuoptEnvelopeToUiValues handles short capacity array (all mock)", () => {
   const env = JSON.parse(JSON.stringify(SOLVED_ENVELOPE));
-  // Drop tainan from envelope
-  env.capacity = env.capacity.filter(c => c.node !== "tainan");
+  env.whatif.rm1_buy_by_period = [100, 100];   // < 10 elements → fallback
   const ui = cuopt.cuoptEnvelopeToUiValues(env, FIXTURE_DATA);
-  // Hsinchu present → envelope
-  assert.equal(ui.capacityRows[1].dataSource, "envelope");
-  // Tainan dropped → mock
-  assert.equal(ui.capacityRows[3].dataSource, "mock");
-  assert.equal(ui.capacityRows[3].value, 77);   // mock optimized for Tainan
+  assert.equal(ui.capacityRows.length, 10);
+  for (const row of ui.capacityRows) {
+    assert.equal(row.dataSource, "mock");
+  }
 });
 
 test("cuoptEnvelopeToUiValues clamps weird out-of-range bar values", () => {
   const env = JSON.parse(JSON.stringify(SOLVED_ENVELOPE));
-  env.metrics.peak_capacity_pressure = 1.5;       // > 1, should clamp display + bar to 100
-  env.metrics.unassigned_priority_lots = 999;     // bar clamp to 100, display shows real
+  env.whatif.fg1_final   = 5000;   // FG1_SCALE=400 → 5000/400*100=1250 → clamp 100
+  env.whatif.rm1_buy_total = 99999; // RM1_MAX_QTY=1000 → 99999/1000*100 → clamp 100
   const ui = cuopt.cuoptEnvelopeToUiValues(env, FIXTURE_DATA);
-  assert.equal(ui.metricRows[3].value, 100);
-  assert.equal(ui.metricRows[3].display, "150%");   // honest display
+  assert.equal(ui.metricRows[0].value, 100);
+  assert.equal(ui.metricRows[0].display, "5000 units");
   assert.equal(ui.metricRows[2].value, 100);
-  assert.equal(ui.metricRows[2].display, "999 lots");
+  assert.equal(ui.metricRows[2].display, "99999 units");
 });
 
 test("cuoptEnvelopeToUiValues handles infeasible status (passes through)", () => {
