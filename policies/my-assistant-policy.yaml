@@ -4,7 +4,6 @@ filesystem_policy:
   read_only:
   - /usr
   - /lib
-  - /proc
   - /dev/urandom
   - /app
   - /etc
@@ -21,6 +20,7 @@ filesystem_policy:
   - /dev/nvidia-uvm-tools
   - /dev/nvidia-modeset
   - /dev/nvidia0
+  - /proc
 landlock:
   compatibility: best_effort
 process:
