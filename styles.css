@@ -1844,6 +1844,54 @@ body.is-run-complete .plan-panel {
   padding: 4px 0;
   list-style: none;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vision-full-details summary .full-summary-label,
+.plan-full-report summary .full-summary-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Small NVIDIA-green action sitting at the right edge of the summary row.
+   stopPropagation in the click handler keeps the <details> toggle from firing
+   when the user hits this button. */
+.print-pdf-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(118, 185, 0, 0.55);
+  background: var(--nvidia-green);
+  color: #111;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 160ms ease;
+  box-shadow: 0 2px 8px rgba(118, 185, 0, 0.22);
+}
+.print-pdf-button:hover {
+  background: #8acc12;
+  border-color: rgba(118, 185, 0, 0.85);
+  box-shadow: 0 4px 14px rgba(118, 185, 0, 0.34);
+}
+.print-pdf-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(118, 185, 0, 0.22);
+}
+.print-pdf-button:focus-visible {
+  outline: 2px solid var(--nvidia-green);
+  outline-offset: 2px;
+}
+.print-pdf-icon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
 }
 .vision-full-details summary::-webkit-details-marker,
 .plan-full-report summary::-webkit-details-marker {
