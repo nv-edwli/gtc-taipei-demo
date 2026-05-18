@@ -51,6 +51,10 @@ DEFAULT_MODEL = os.environ.get(
 )
 DEFAULT_MAX_TOKENS = int(os.environ.get("VISION_MAX_TOKENS", "4096"))
 DEFAULT_TIMEOUT = int(os.environ.get("VISION_TIMEOUT", "180"))
+# Cap on the model's internal reasoning trace. Smaller = faster (less time
+# spent thinking) and leaves more of --max-tokens for the final answer.
+# Set to 0 to disable thinking entirely. Empty string = let the server decide.
+DEFAULT_REASONING_BUDGET = os.environ.get("VISION_REASONING_BUDGET", "1600")
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +265,7 @@ def _build_payload(
     max_tokens: int,
     temperature: float | None,
     top_p: float | None,
+    reasoning_budget: int | None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
@@ -271,6 +276,17 @@ def _build_payload(
         payload["temperature"] = temperature
     if top_p is not None:
         payload["top_p"] = top_p
+    # Nemotron Nano Omni reasoning knob. The chat-template kwarg toggles the
+    # reasoning trace on/off; reasoning_budget caps how many tokens the model
+    # spends thinking before it must emit the final answer. Both fields are
+    # safe to send to the local NIM — extras are ignored by non-reasoning
+    # models, so the script stays portable to plain multimodal endpoints.
+    if reasoning_budget is not None:
+        if reasoning_budget <= 0:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+        else:
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
+            payload["reasoning_budget"] = reasoning_budget
     return payload
 
 
@@ -441,6 +457,19 @@ def main(argv: list[str]) -> int:
         help="Nucleus sampling top_p (omit to use server default).",
     )
     p.add_argument(
+        "--reasoning-budget",
+        type=int,
+        default=None,
+        help=(
+            "Cap on internal reasoning tokens for thinking models (e.g. Nemotron "
+            "Nano Omni reasoning). Lower = faster, leaves more of --max-tokens "
+            "for the final answer. 0 disables thinking entirely. Omit on the CLI "
+            "to fall back to $VISION_REASONING_BUDGET (default: "
+            f"{DEFAULT_REASONING_BUDGET or 'server-default'}). "
+            "Pass an empty string to use server defaults."
+        ),
+    )
+    p.add_argument(
         "--endpoint",
         default=DEFAULT_ENDPOINT,
         help=f"Chat completions endpoint URL. Default: {DEFAULT_ENDPOINT}",
@@ -479,6 +508,17 @@ def main(argv: list[str]) -> int:
     for raw in args.images:
         images.append(_normalize_image(raw))
 
+    # Reasoning budget resolution: CLI flag wins; else env default; else None.
+    if args.reasoning_budget is not None:
+        reasoning_budget: int | None = args.reasoning_budget
+    elif DEFAULT_REASONING_BUDGET.strip() == "":
+        reasoning_budget = None
+    else:
+        try:
+            reasoning_budget = int(DEFAULT_REASONING_BUDGET)
+        except ValueError:
+            reasoning_budget = None
+
     payload = _build_payload(
         prompt=prompt,
         images=images,
@@ -486,6 +526,7 @@ def main(argv: list[str]) -> int:
         max_tokens=args.max_tokens,
         temperature=args.temperature,
         top_p=args.top_p,
+        reasoning_budget=reasoning_budget,
     )
 
     resp = _post_json(args.endpoint, payload, args.timeout)

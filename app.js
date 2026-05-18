@@ -629,6 +629,22 @@ function matchSkill(name, input) {
   return null;
 }
 
+// Authoritative stage → skill mapping. The orchestrator already infers a
+// stage per tool beat (see server/normalize-claude.mjs / normalize-codex.mjs
+// STAGE_HINTS) and that signal is more reliable than substring-matching the
+// tool input, which trips on broad cross-references (e.g. an AIQ query that
+// threads cuopt's numbers contains the literal "cuopt" and would otherwise
+// route to the wrong chip). Returns null for "general" so callers can fall
+// back to matchSkill.
+function skillIdForStage(stage) {
+  switch (stage) {
+    case "cuopt":  return "cuopt";
+    case "vision": return "vision-insights";
+    case "aiq":    return "aiq-research";
+    default:       return null;
+  }
+}
+
 function markSkillCalled(skillId) {
   if (!skillId) return;
   state.skillState[skillId] = "calling";
@@ -1477,7 +1493,11 @@ function handleToolInvoked({ id, name, input, stage }) {
       state.visionBackgroundBashId = null;
     }
   }
-  const skillId = matchSkill(name, input);
+  // Stage is authoritative for chip selection. Fall back to matchSkill only
+  // for "general" (stage hint missed) so non-skill tools — Read/Glob/etc —
+  // never light up a chip just because their input mentions one of the
+  // skill names listed in the system prime.
+  const skillId = skillIdForStage(stage) || (stage === "general" || !stage ? matchSkill(name, input) : null);
   if (skillId) markSkillCalled(skillId);
   renderToolEntry({ id, name, stage, input, status: "running", skillId });
 }
@@ -1489,7 +1509,11 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     const li = els.console.querySelector(`.tool-entry[data-tool-id="${cssEscape(id)}"]`);
     if (li && li.dataset.skillId) skillId = li.dataset.skillId;
   }
-  if (!skillId) skillId = matchSkill(name, stdout);
+  // No stdout fallback — the system prime mentions all three skill
+  // executables by name, so any incidental Bash that prints a slice of the
+  // prime or an ls of skills/ would otherwise flip an unrelated chip to
+  // "ready". Stage is the only fallback we trust.
+  if (!skillId) skillId = skillIdForStage(stage);
   if (skillId) markSkillCompleted(skillId);
 
   if (isError) {
@@ -1545,26 +1569,47 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
     }
   }
 
-  if (stage === "vision" && !isError) {
+  if (stage === "vision") {
     const cleaned = (stdout || "").trim();
-    // Layer 2: when the agent invokes vision_analyze.py with run_in_background:
-    // true, Claude Code's harness immediately returns a "Command running in
-    // background with ID: …" preamble instead of the real Nemotron output.
-    // Treat this as still-pending, not as the actual result.
-    const bgMatch = cleaned.match(/Command running in background with ID:\s*([\w-]+)/i);
+    // Background path is only meaningful when the tool actually ran — exit
+    // 2/3/5 won't carry a "Command running in background" preamble.
+    const bgMatch = !isError ? cleaned.match(/Command running in background with ID:\s*([\w-]+)/i) : null;
     if (bgMatch) {
       state.visionBackgroundBashId = bgMatch[1];
-      // Keep the analyzing UI state; the skeleton stays.
       setStageSubstate("vision", "streaming");
       addConsoleEntry("vision", `Vision call backgrounded by harness (bash id ${bgMatch[1].slice(0, 8)}). Waiting for real output…`);
     } else {
+      // Render whatever we have. extractVisionSummary handles both structured
+      // (**Observations** / ## Insights) and unstructured prose (it falls
+      // back to a sentence-boundary clip near 900 chars). The full-analysis
+      // <details> below the summary always shows raw stdout, so even when
+      // the extractor returns a generic clip the audience can dig in.
+      //
+      // The looksLikeVisionResult heuristic is intentionally NOT a gate
+      // here — it was rejecting valid Nemotron output that didn't happen to
+      // use `**Section**` / `## Section` headers (e.g. numbered lists), which
+      // left the skeleton shimmering forever.
       if (cleaned) {
         const summary = extractVisionSummary(cleaned);
         state.visionTextAccumulator = summary;
-        state.visionFullText = cleaned;        // preserve the full Nemotron output
+        state.visionFullText = cleaned;
         updateVisionCopy(summary);
       }
-      finalizeVisionDone();
+
+      // Failed/truncated/done decision is orthogonal to whether we rendered.
+      // Truncation can be inferred from a non-zero exit OR from stderr
+      // markers vision_analyze.py prints when the model didn't reach `stop`.
+      const stderrText = stderr || "";
+      const truncated = isError
+        || /finish_reason\s*=?\s*length|response was truncated|no final answer was returned/i.test(stderrText);
+
+      if (!cleaned) {
+        finalizeVisionFailed(stderrText);
+      } else if (truncated) {
+        finalizeVisionTruncated();
+      } else {
+        finalizeVisionDone();
+      }
     }
   }
 
@@ -1599,6 +1644,44 @@ function finalizeVisionDone() {
   setStageSubstate("vision", "done");
   const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
   if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
+}
+
+// Partial output: model hit the token budget. We rendered whatever stdout
+// carried, but the audience should know the analysis was cut short — show a
+// warn chip + toast and still advance so downstream stages aren't blocked.
+function finalizeVisionTruncated() {
+  els.visionConfidence.textContent = "partial · truncated";
+  els.visionConfidence.className = "confidence-chip is-warn";
+  if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
+  setStageSubstate("vision", "done");
+  addConsoleEntry("vision", "Vision Insights hit the token budget — partial output shown.");
+  showToast("warn", "Vision Insights truncated — model hit the token budget. Partial output shown; raise --reasoning-budget or --max-tokens for a full analysis.", 8000);
+  const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
+  if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
+}
+
+// Hard failure: no usable Nemotron readout. Mark the stage failed so the rail
+// shows the failure indicator instead of an indefinite spinner.
+function finalizeVisionFailed(stderrText) {
+  els.visionConfidence.textContent = "analysis failed";
+  els.visionConfidence.className = "confidence-chip is-failed";
+  if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
+  if (els.visionCopy) {
+    els.visionCopy.innerHTML = `
+      <div class="vision-failed-note">
+        <strong>Vision Insights unavailable.</strong>
+        The Nemotron Omni call did not return a usable analysis. Check the run trace for the script's stderr.
+      </div>
+    `;
+  }
+  if (els.visionFullRow) {
+    els.visionFullRow.innerHTML = "";
+    els.visionFullRow.hidden = true;
+  }
+  setStageSubstate("vision", "failed");
+  const tail = (stderrText || "").trim().split("\n").slice(-1)[0] || "";
+  addConsoleEntry("vision", `Vision Insights failed${tail ? " — " + truncate(tail, 200) : ""}`);
+  showToast("error", "Vision Insights failed — see run trace for details.", 8000);
 }
 
 // Heuristic: does this stdout look like a real Nemotron readout? We require
@@ -2607,8 +2690,9 @@ function cssEscape(s) {
 
 // Minimal markdown → HTML. Covers the subset that aiq.py and vision_analyze.py
 // actually emit: ATX headings, *italic*/**bold**, `code`, bullet & numeric
-// lists, links, horizontal rules, blank-line paragraphs. Anything more exotic
-// (tables, fenced code blocks) prints as plain text — fine for the demo.
+// lists, links, horizontal rules, GFM pipe tables, blank-line paragraphs.
+// Fenced code blocks pass through as plain prose — agent output rarely uses
+// them for substantive content.
 function renderMarkdownForPrint(text) {
   if (!text) return "";
   const inline = (s) => escapeHtml(s)
@@ -2616,6 +2700,54 @@ function renderMarkdownForPrint(text) {
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+
+  // A line that *could* be a table row: has at least one pipe character with
+  // content on both sides (so a stray `|` in prose won't trigger us). Leading
+  // and trailing pipes are both optional in GFM, hence the lenient anchor.
+  const isTableRow = (s) => /\|/.test(s) && /\S/.test(s.replace(/\|/g, ""));
+  // The separator row under the header — pipes, dashes, optional alignment
+  // colons, whitespace only. Must contain at least one dash.
+  const isTableSeparator = (s) => /-/.test(s) && /^[\s|:\-]+$/.test(s);
+
+  const splitRow = (s) => {
+    // Strip optional outer pipes, split on `|` not preceded by `\`.
+    let trimmed = s.trim();
+    if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+    if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+    // Split on un-escaped pipes; unescape `\|` back to literal `|` afterwards.
+    return trimmed.split(/(?<!\\)\|/).map((c) => c.replace(/\\\|/g, "|").trim());
+  };
+
+  const parseAlignments = (sepRow) => splitRow(sepRow).map((cell) => {
+    const c = cell.trim();
+    const left = c.startsWith(":");
+    const right = c.endsWith(":");
+    if (left && right) return "center";
+    if (right) return "right";
+    if (left) return "left";
+    return null;
+  });
+
+  const renderTable = (headerRow, sepRow, bodyRows) => {
+    const headers = splitRow(headerRow);
+    const aligns = parseAlignments(sepRow);
+    const styleFor = (i) => (aligns[i] ? ` style="text-align:${aligns[i]}"` : "");
+    const headHtml =
+      "<thead><tr>" +
+      headers.map((h, i) => `<th${styleFor(i)}>${inline(h)}</th>`).join("") +
+      "</tr></thead>";
+    const bodyHtml =
+      "<tbody>" +
+      bodyRows.map((row) => {
+        const cells = splitRow(row);
+        // Pad short rows so columns line up; trim overlong rows.
+        while (cells.length < headers.length) cells.push("");
+        cells.length = headers.length;
+        return "<tr>" + cells.map((c, i) => `<td${styleFor(i)}>${inline(c)}</td>`).join("") + "</tr>";
+      }).join("") +
+      "</tbody>";
+    return `<table>${headHtml}${bodyHtml}</table>`;
+  };
 
   const lines = text.split("\n");
   const out = [];
@@ -2637,9 +2769,30 @@ function renderMarkdownForPrint(text) {
     listKind = kind;
   };
 
-  for (const raw of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
     const line = raw.replace(/\s+$/, "");
     if (!line.trim()) { flushPara(); closeList(); continue; }
+
+    // Tables — peek ahead one line for the separator row. Has to come before
+    // the list/heading checks because a separator like `|---|---|` would
+    // otherwise look like a list to nothing.
+    if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      flushPara(); closeList();
+      const headerRow = line;
+      const sepRow = lines[i + 1];
+      const body = [];
+      let j = i + 2;
+      while (j < lines.length) {
+        const r = lines[j].replace(/\s+$/, "");
+        if (!r.trim() || !isTableRow(r)) break;
+        body.push(r);
+        j++;
+      }
+      out.push(renderTable(headerRow, sepRow, body));
+      i = j - 1;       // for-loop will i++ to land on first non-table line
+      continue;
+    }
 
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
@@ -2675,122 +2828,69 @@ function renderMarkdownForPrint(text) {
   return out.join("\n");
 }
 
-// Open a new window with the text rendered as styled HTML and pop the browser
-// print dialog. The user picks "Save as PDF" (or any printer) from there —
-// every modern browser supports virtual-PDF printing natively, so no library
-// or server round-trip is needed.
+// Render the markdown into a hidden <div class="print-target"> inside the
+// main document and fire window.print(). @media print rules in styles.css
+// hide the running app and reveal the print target only at print time. The
+// onafterprint hook tears the container down once the dialog dismisses, so
+// the screen state is untouched.
+//
+// Why this and not a popup: popups force the user to context-switch to a
+// second window, and calling popup.print() from the parent blocks the
+// parent's main thread (a freeze the user observed and asked us to remove).
+// Printing the main window keeps the dialog modal-over-the-app, which is
+// the standard browser behavior most users expect.
 function printAsPdf(title, text) {
   if (!text || !text.trim()) {
     showToast("warn", "Nothing to print yet — wait for the analysis to finish.");
     return;
   }
 
-  const win = window.open("", "_blank", "width=960,height=820,noopener=no");
-  if (!win) {
-    showToast("error", "Pop-up was blocked. Allow pop-ups for this site to print as PDF.");
-    return;
-  }
+  // Drop any stale print container from a previous click that didn't clean
+  // up (some browsers can be flaky about firing afterprint on cancel).
+  document.querySelectorAll(".print-target").forEach((n) => n.remove());
 
   const body = renderMarkdownForPrint(text);
   const stamp = new Date().toLocaleString();
-  const doc = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${escapeHtml(title)}</title>
-<style>
-  @page { margin: 18mm 16mm; }
-  html, body { background: #ffffff; color: #111; }
-  body {
-    margin: 0;
-    padding: 28px 36px 40px;
-    font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
-    font-size: 11.5pt;
-    line-height: 1.55;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  header.pdf-head {
-    border-bottom: 2px solid #76b900;
-    padding-bottom: 10px;
-    margin-bottom: 22px;
-  }
-  header.pdf-head .pdf-eyebrow {
-    display: block;
-    font-size: 8.5pt;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #76b900;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  header.pdf-head h1 {
-    margin: 0 0 4px;
-    font-size: 18pt;
-    font-weight: 700;
-    color: #111;
-  }
-  header.pdf-head .pdf-meta {
-    font-size: 9pt;
-    color: #555;
-  }
-  main.pdf-body h1 { font-size: 16pt; margin: 18px 0 8px; color: #111; }
-  main.pdf-body h2 { font-size: 13.5pt; margin: 16px 0 6px; color: #1f2a17; border-bottom: 1px solid #e1e6da; padding-bottom: 3px; }
-  main.pdf-body h3 { font-size: 11.5pt; margin: 14px 0 4px; color: #2a3922; }
-  main.pdf-body h4, main.pdf-body h5, main.pdf-body h6 { font-size: 11pt; margin: 12px 0 3px; color: #2a3922; }
-  main.pdf-body p { margin: 0 0 9px; }
-  main.pdf-body ul, main.pdf-body ol { margin: 0 0 10px 0; padding-left: 22px; }
-  main.pdf-body li { margin: 2px 0; }
-  main.pdf-body strong { color: #111; }
-  main.pdf-body em { color: #2a3922; }
-  main.pdf-body a { color: #3a6f00; text-decoration: underline; word-break: break-word; }
-  main.pdf-body code {
-    font-family: "SF Mono", Menlo, Consolas, monospace;
-    font-size: 9.5pt;
-    background: #f4f6f0;
-    padding: 1px 4px;
-    border-radius: 3px;
-    color: #2a3922;
-  }
-  main.pdf-body hr { border: 0; border-top: 1px solid #d8ded0; margin: 14px 0; }
-  footer.pdf-foot {
-    margin-top: 28px;
-    padding-top: 10px;
-    border-top: 1px solid #d8ded0;
-    font-size: 8.5pt;
-    color: #777;
-  }
-  @media print {
-    body { padding: 0; }
-    header.pdf-head { page-break-after: avoid; }
-    main.pdf-body h1, main.pdf-body h2, main.pdf-body h3 { page-break-after: avoid; }
-    main.pdf-body p, main.pdf-body li { orphans: 3; widows: 3; }
-  }
-</style>
-</head>
-<body>
-  <header class="pdf-head">
-    <span class="pdf-eyebrow">NVIDIA CUDA-X · GTC Taipei supply-chain demo</span>
-    <h1>${escapeHtml(title)}</h1>
-    <div class="pdf-meta">Generated ${escapeHtml(stamp)}</div>
-  </header>
-  <main class="pdf-body">${body}</main>
-  <footer class="pdf-foot">Printed from the GTC Taipei supply-chain demo — agent-generated content. Verify before distributing.</footer>
-</body>
-</html>`;
+  const container = document.createElement("div");
+  container.className = "print-target";
+  container.setAttribute("role", "document");
+  container.innerHTML = `
+    <header class="print-head">
+      <span class="print-eyebrow">NVIDIA CUDA-X · GTC Taipei supply-chain demo</span>
+      <h1>${escapeHtml(title)}</h1>
+      <div class="print-meta">Generated ${escapeHtml(stamp)}</div>
+    </header>
+    <main class="print-body">${body}</main>
+    <footer class="print-foot">Printed from the GTC Taipei supply-chain demo — agent-generated content. Verify before distributing.</footer>
+  `;
+  document.body.appendChild(container);
 
-  win.document.open();
-  win.document.write(doc);
-  win.document.close();
-
-  const fire = () => {
-    try { win.focus(); win.print(); } catch (_) { /* user can hit ctrl+p */ }
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    window.removeEventListener("afterprint", cleanup);
+    container.remove();
   };
-  if (win.document.readyState === "complete") {
-    setTimeout(fire, 250);
-  } else {
-    win.addEventListener("load", () => setTimeout(fire, 150));
-  }
+  window.addEventListener("afterprint", cleanup);
+
+  // requestAnimationFrame lets the browser commit the DOM insertion before
+  // window.print() is invoked, so the print preview captures the target
+  // element. window.print() is synchronous: it blocks the main thread until
+  // the dialog dismisses (which is the standard, expected behavior). When
+  // it returns, afterprint has already fired and cleanup has run.
+  requestAnimationFrame(() => {
+    try { window.print(); }
+    catch (_) {
+      showToast("error", "Print failed — your browser refused window.print(). Try Cmd/Ctrl+P.");
+      cleanup();
+      return;
+    }
+    // Belt-and-suspenders for browsers (older Safari, in-app webviews) that
+    // don't reliably fire afterprint. Schedule a fallback teardown so a
+    // stale .print-target can't linger past the dialog dismissal.
+    setTimeout(cleanup, 60000);
+  });
 }
 
 /* ============================================================
