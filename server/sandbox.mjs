@@ -147,13 +147,14 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
     `     Prints a single JSON envelope on stdout with shape`,
     `     {kind:"cuopt.result", status, baseline{}, whatif{}, delta{}, opening_stock{}, explanation}.`,
     `     No arguments; the scenario is encoded in the script. Typical runtime: 10-60s.)`,
-    `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 4000 --reasoning-budget 1600 <image-path>`,
+    `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 --reasoning-budget 1600 <image-path>`,
     `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout. Nemotron`,
     `     is a reasoning model: it emits a hidden thinking trace BEFORE the final answer. We cap that`,
-    `     trace at 1600 tokens via --reasoning-budget so the model stops thinking promptly and has`,
-    `     room inside --max-tokens=4000 to emit the structured Observations/Insights/Recommendations`,
-    `     readout the UI parses. Wall time typically 25–90s. If the call exits 2 (truncated), raise`,
-    `     --reasoning-budget to 2400 or --max-tokens to 6000 and retry once.)`,
+    `     trace at 1600 tokens via --reasoning-budget so the model stops thinking promptly, leaving`,
+    `     ~4400 tokens inside --max-tokens=6000 for the structured Observations/Insights/Recommendations`,
+    `     readout the UI parses. The preset itself asks the model to keep the final answer under`,
+    `     ~1500 tokens, so the 6000 budget is headroom rather than the expected size. Wall time`,
+    `     typically 40–120s. If the call still exits 2 (truncated), raise --max-tokens to 8000.)`,
     `  - AIQ Research:   python3 ${skillsDir}/aiq-research/scripts/aiq.py check-auth`,
     `                    python3 ${skillsDir}/aiq-research/scripts/aiq.py research "<query>" shallow_researcher`,
     `    (Submits a shallow async research job, polls server-side, and prints the final report JSON on stdout.`,
@@ -197,7 +198,9 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   lines.push("  preamble. Each script blocks for tens of seconds; that wait is expected.");
   lines.push("- IMPORTANT — set a generous Bash-tool timeout for vision_analyze.py and aiq.py. Both can run");
   lines.push("  longer than the Bash tool's 2-minute default and the tool will kill them mid-flight otherwise.");
-  lines.push("  When invoking vision_analyze.py, pass `timeout: 240000` (4 minutes in milliseconds).");
+  lines.push("  When invoking vision_analyze.py, pass `timeout: 360000` (6 minutes in milliseconds). Nemotron");
+  lines.push("  Omni at the chart preset with this brief lands typically around 60-120s, but the worst case");
+  lines.push("  with the full 6000 max-tokens budget can run ~300s; the 360s ceiling leaves a 60s buffer.");
   lines.push("  When invoking aiq.py research, pass `timeout: 180000` (3 minutes). cuOpt typically finishes");
   lines.push("  in <15s and the default is fine for it.");
   lines.push("");

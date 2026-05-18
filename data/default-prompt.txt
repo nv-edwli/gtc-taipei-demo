@@ -1,17 +1,17 @@
-Solve the max-supply MILP what-if scenario, then research a business plan around the results.
+I'm planning Q3 wafer supply for a multi-fab semiconductor operation. The fab network runs a multi-period MILP under bill-of-materials constraints, and I have the current RM1 procurement-profile chart for the planning horizon. I want to see how cuOpt's optimal routing shifts the supply plan when we seed the network with the strategic raw-material positions I've gathered, then interpret what the resulting procurement curve implies for the rest of the production system. The end output should be a board-ready, multifaceted business plan grounded in market, risk, and execution reality.
 
-First call cuOpt (skills/cuopt/max-supply/run.py) to run two MILP solves:
+**Step 1 — Optimal wafer-supply routing with cuOpt** (skills/cuopt/max-supply/run.py). Run two MILP solves:
   1. Baseline: zero opening inventory for all items.
-  2. What-if: SA1=40, RM1=250, RM3=180 units opening inventory.
+  2. What-if: SA1=40, RM1=250, RM3=180 units opening inventory — the strategic positions we've staged for this scenario.
 
-The script prints a single JSON envelope with kind "cuopt.result" containing baseline metrics, what-if metrics, deltas, and an explanation. Parse that envelope — FG1/FG2 end-of-horizon inventory, RM1 buy-order reductions by period, and the objective improvement are the headline numbers.
+The script prints a single JSON envelope with kind "cuopt.result" containing baseline metrics, what-if metrics, deltas, and an explanation. Parse that envelope — FG1/FG2 end-of-horizon inventory, RM1 buy-order reductions by period, and the objective improvement are the headline numbers that quantify the routing change.
 
-Then use Vision Insights (vision_analyze.py) to interpret the attached inventory-build chart against the cuOpt result — which periods show the most buy-order relief, how quickly FG1 inventory builds in the what-if vs baseline, and what the operator should watch.
+**Step 2 — Visualize the optimization impact with Vision Insights** (vision_analyze.py). The attached chart shows RM1 buy orders across the 10-period horizon — baseline vs the what-if opening-stock plan — and is the current view of the procurement profile this run is producing. Read it against the cuOpt result: confirm which periods show the most buy-order relief, quantify how dramatically RM1 drops in the lowest-procurement periods, infer how quickly FG1 inventory builds in the what-if vs baseline, and flag what the operator should watch as the plan executes.
 
-Then call AIQ Research (aiq.py) for a shallow research pass. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence. Topics:
-- public competitive landscape for GPU-accelerated supply-chain planning and MILP optimisation tools
-- publicly-reported risk factors for multi-level BOM manufacturing (supply volatility, lead-time uncertainty)
-- general buyer-profile and go-to-market patterns for advanced manufacturing planning software
-- a generic phased execution plan from pilot to production for an AI-native planning tool
+**Step 3 — Strategic context with AIQ Research** (aiq.py). Run a shallow research pass to complete the picture beyond the numbers. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence. Cover all four angles:
+- Market: public competitive landscape for GPU-accelerated supply-chain planning and MILP optimisation tools.
+- Risk: publicly-reported risk factors for multi-level BOM semiconductor manufacturing — wafer supply volatility, lead-time uncertainty, geopolitical exposure.
+- Strategy: general buyer-profile and go-to-market patterns for advanced manufacturing planning software.
+- Execution: a generic phased execution plan from pilot to production for an AI-native planning tool.
 
-Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single board-ready brief covering strategy, market, risk, and execution.
+Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single board-ready brief that pulls all four threads — strategy, market, risk, and execution — into one multifaceted business plan for the next planning cycle.

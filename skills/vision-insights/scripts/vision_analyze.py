@@ -50,7 +50,16 @@ DEFAULT_MODEL = os.environ.get(
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
 )
 DEFAULT_MAX_TOKENS = int(os.environ.get("VISION_MAX_TOKENS", "4096"))
-DEFAULT_TIMEOUT = int(os.environ.get("VISION_TIMEOUT", "180"))
+# urllib read timeout for the NIM round-trip. The harness Bash tool gives
+# vision_analyze.py 360s; we cap at 300s here so urllib exits cleanly (with
+# exit-code 5 + a useful error) before the harness would kill the process
+# outright. At observed throughput (~18-22 output tokens/sec under the
+# chart preset with the chip-manufacturing brief), the worst-case 6000-
+# token response lands near 280-330s, so 300 is the smallest ceiling that
+# doesn't clip outliers. urllib measures socket-idle time, not wall time —
+# since the call is non-streaming, the entire model wall time looks like
+# silence to urllib, so this ceiling really does need to cover wall time.
+DEFAULT_TIMEOUT = int(os.environ.get("VISION_TIMEOUT", "300"))
 # Cap on the model's internal reasoning trace. Smaller = faster (less time
 # spent thinking) and leaves more of --max-tokens for the final answer.
 # Set to 0 to disable thinking entirely. Empty string = let the server decide.
@@ -86,7 +95,13 @@ PRESETS: dict[str, str] = {
         "5. Flag anything that looks suspicious: missing data, broken axes, "
         "misleading scales, cherry-picked ranges, unlabeled units.\n\n"
         "End with **Observations**, **Insights**, **Actionable Recommendations** "
-        "(decisions or follow-up analyses that this chart supports)."
+        "(decisions or follow-up analyses that this chart supports).\n\n"
+        "Length budget: keep the final answer under ~1500 tokens (roughly 6000 "
+        "characters / 1000 words). You won't see how close you are to the "
+        "max_tokens cap, so pace yourself: lead each section with the most "
+        "decision-relevant points and compress quantification detail before "
+        "dropping section headers if you must shorten. A concise, complete "
+        "answer beats a verbose one that gets truncated."
     ),
     "dashboard": (
         "Treat this as a multi-panel dashboard. For each panel:\n"
