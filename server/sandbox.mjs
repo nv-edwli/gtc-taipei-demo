@@ -147,8 +147,8 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
     `     Prints a single JSON envelope on stdout with shape`,
     `     {kind:"cuopt.result", status, baseline{}, whatif{}, delta{}, opening_stock{}, explanation}.`,
     `     No arguments; the scenario is encoded in the script. Typical runtime: 10-60s.)`,
-    `  - Vision Insights: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 --reasoning-budget 1600 <image-path>`,
-    `    (analyzes a chart image with Nemotron Omni; returns the final summary on stdout. Nemotron`,
+    `  - Nemotron Omni: python3 ${skillsDir}/vision-insights/scripts/vision_analyze.py --preset chart --max-tokens 6000 --reasoning-budget 1600 <image-path>`,
+    `    (NVIDIA's multimodal vision-insights model — analyzes a chart image and returns the final summary on stdout. Nemotron`,
     `     is a reasoning model: it emits a hidden thinking trace BEFORE the final answer. We cap that`,
     `     trace at 1600 tokens via --reasoning-budget so the model stops thinking promptly, leaving`,
     `     ~4400 tokens inside --max-tokens=6000 for the structured Observations/Insights/Recommendations`,
@@ -167,7 +167,7 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
 
   if (imagePath) {
     lines.push(`The user has attached an image at: ${imagePath}`);
-    lines.push("Use Vision Insights on this image first; thread its summary into the AIQ Research prompt.");
+    lines.push("Use Nemotron Omni on this image first; thread its summary into the AIQ Research prompt.");
     lines.push("");
   }
 

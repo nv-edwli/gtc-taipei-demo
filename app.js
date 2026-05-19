@@ -92,7 +92,7 @@ const SKILL_ACTIVE_FADE_MS = 1400;
 const STAGE_LABELS = {
   brief: "Task Overview",
   cuopt: "cuOpt Solve",
-  vision: "Vision Insights",
+  vision: "Nemotron Omni",
   aiq: "AIQ Research"
 };
 
@@ -585,7 +585,7 @@ function updateRunSubstatus() {
   const stage = state.autoFollowStage || "brief";
   const i = stageOrder.indexOf(stage);
   const idx = i >= 0 ? String(i + 1).padStart(2, "0") : "01";
-  const labels = { brief: "Task Overview", cuopt: "cuOpt Solve", vision: "Vision Insights", aiq: "AIQ Research" };
+  const labels = { brief: "Task Overview", cuopt: "cuOpt Solve", vision: "Nemotron Omni", aiq: "AIQ Research" };
   els.runStatus.textContent = `Stage ${idx} · ${labels[stage] || stage}`;
 }
 
@@ -1636,7 +1636,7 @@ function handleToolCompleted({ id, name, stage, stdout, stderr, isError, duratio
       updateVisionCopy(summary);
       finalizeVisionDone();
       state.visionBackgroundBashId = null;
-      addConsoleEntry("vision", "Captured backgrounded Vision Insights output.");
+      addConsoleEntry("vision", "Captured backgrounded Nemotron Omni output.");
     }
   }
 
@@ -1664,8 +1664,8 @@ function finalizeVisionTruncated() {
   els.visionConfidence.className = "confidence-chip is-warn";
   if (els.visionImageWrap) els.visionImageWrap.classList.remove("is-analyzing");
   setStageSubstate("vision", "done");
-  addConsoleEntry("vision", "Vision Insights hit the token budget — partial output shown.");
-  showToast("warn", "Vision Insights truncated — model hit the token budget. Partial output shown; raise --reasoning-budget or --max-tokens for a full analysis.", 8000);
+  addConsoleEntry("vision", "Nemotron Omni hit the token budget — partial output shown.");
+  showToast("warn", "Nemotron Omni truncated — model hit the token budget. Partial output shown; raise --reasoning-budget or --max-tokens for a full analysis.", 8000);
   const newScore = Math.min(state.optimizedScore - 8, state.baselineScore + 35);
   if (newScore > state.currentScore) animateScore(state.currentScore, newScore, 1200);
 }
@@ -1679,7 +1679,7 @@ function finalizeVisionFailed(stderrText) {
   if (els.visionCopy) {
     els.visionCopy.innerHTML = `
       <div class="vision-failed-note">
-        <strong>Vision Insights unavailable.</strong>
+        <strong>Nemotron Omni unavailable.</strong>
         The Nemotron Omni call did not return a usable analysis. Check the run trace for the script's stderr.
       </div>
     `;
@@ -1690,8 +1690,8 @@ function finalizeVisionFailed(stderrText) {
   }
   setStageSubstate("vision", "failed");
   const tail = (stderrText || "").trim().split("\n").slice(-1)[0] || "";
-  addConsoleEntry("vision", `Vision Insights failed${tail ? " — " + truncate(tail, 200) : ""}`);
-  showToast("error", "Vision Insights failed — see run trace for details.", 8000);
+  addConsoleEntry("vision", `Nemotron Omni failed${tail ? " — " + truncate(tail, 200) : ""}`);
+  showToast("error", "Nemotron Omni failed — see run trace for details.", 8000);
 }
 
 // Heuristic: does this stdout look like a real Nemotron readout? We require
@@ -2025,7 +2025,7 @@ function updateVisionCopy(text) {
         printBtn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          printAsPdf("Vision Insights — Full Analysis", state.visionFullText || "");
+          printAsPdf("Nemotron Omni — Full Analysis", state.visionFullText || "");
         });
       }
       els.visionFullRow.hidden = false;

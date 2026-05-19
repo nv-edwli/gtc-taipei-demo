@@ -2,7 +2,7 @@
   "stageLabels": {
     "brief": "Task Overview",
     "cuopt": "cuOpt Solve",
-    "vision": "Vision Insights",
+    "vision": "Nemotron Omni",
     "aiq": "AIQ Research"
   },
   "scenarioLoad": {
@@ -52,9 +52,9 @@
     },
     {
       "id": "vision-insights",
-      "name": "Vision Insights",
-      "icon": "VI",
-      "detail": "Nemotron Omni multimodal reasoning over charts, diagrams, and dashboards.",
+      "name": "Nemotron Omni",
+      "icon": "NO",
+      "detail": "Multimodal reasoning over charts, diagrams, and dashboards — NVIDIA's vision-insights model.",
       "match": ["vision_analyze.py", "vision-insights", "vision_insights", "nemotron omni", "nemotron-omni"]
     },
     {
@@ -130,7 +130,7 @@
           "done": "MILP results normalised for downstream skills."
         },
         "vision": {
-          "calling": "Codex streaming the inventory chart to Vision Insights (Nemotron Omni)…",
+          "calling": "Codex streaming the inventory chart to Nemotron Omni…",
           "streaming": "Nemotron Omni: early-period RM1 buy drops to zero; FG1 inventory builds faster.",
           "typing": "Writing operator-facing readout from the multimodal interpretation.",
           "done": "Visual readout attached to the research brief."
@@ -167,7 +167,7 @@
           "done": "Claude summarised the MILP results for downstream skills."
         },
         "vision": {
-          "calling": "Claude attaching the inventory chart to Vision Insights for Nemotron Omni interpretation.",
+          "calling": "Claude attaching the inventory chart to Nemotron Omni for multimodal interpretation.",
           "streaming": "Nemotron Omni read the chart: RM1 buy pressure eases in periods 1–3; FG1 builds faster.",
           "typing": "Claude turning the multimodal read into a one-line operator note.",
           "done": "Vision readout joined the running narrative."
@@ -216,7 +216,7 @@
       "summary": "A credible pilot can start with weekly planning data and a single what-if dimension, then expand into multi-scenario sweeps, Vision-Insights-backed dashboard review, and AIQ-supported procurement strategy.",
       "points": [
         "Phase one: run the max-supply MILP on historical demand and BOM data to validate objective improvement vs actual outcomes.",
-        "Phase two: attach Vision Insights to inventory-build charts for automated anomaly triage and operator briefings.",
+        "Phase two: attach Nemotron Omni to inventory-build charts for automated anomaly triage and operator briefings.",
         "Phase three: trigger AIQ Research for board-level procurement strategy and market-positioning reports."
       ]
     }
