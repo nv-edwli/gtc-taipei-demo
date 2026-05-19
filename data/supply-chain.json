@@ -45,7 +45,7 @@
   "skills": [
     {
       "id": "cuopt",
-      "name": "cuOpt MILP",
+      "name": "cuOpt",
       "icon": "CO",
       "detail": "GPU-accelerated MILP solver — max-supply multi-period planning with BOM, lead times, and resource capacity.",
       "match": ["cuopt", "max-supply", "max_supply", "milp", "cuopt.result", "/cuopt/request"]
