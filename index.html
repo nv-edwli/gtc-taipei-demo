@@ -6,7 +6,7 @@
     <title>GTC Taipei CUDA-X Supply Chain Demo</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
-  <body data-harness="codex">
+  <body data-harness="codex" data-view="intro">
     <div class="app-shell">
       <header class="topbar">
         <a class="brand-lockup" href="./" aria-label="GTC Taipei CUDA-X demo home">
@@ -29,7 +29,7 @@
             </button>
           </div>
 
-          <button class="icon-button" type="button" id="reset-run" aria-label="Reset run">
+          <button class="icon-button" type="button" id="reset-run" aria-label="Reset run" title="Reset run">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 12a8 8 0 1 0 2.35-5.66"></path>
               <path d="M4 5v5h5"></path>
@@ -50,6 +50,192 @@
           </button>
         </div>
       </header>
+
+      <div class="view-stack">
+      <section class="intro-screen" id="intro-screen" aria-labelledby="intro-title">
+        <div class="intro-shell">
+          <div class="intro-hero">
+            <span class="eyebrow">GTC Taipei · CUDA-X demo</span>
+            <h1 id="intro-title" class="intro-title">Watch one agent run a real supply chain — solve, see, synthesize.</h1>
+            <p class="intro-tagline">A board-ready Taiwan supply-chain plan, produced live by Claude or Codex calling three packaged NVIDIA CUDA-X skills.</p>
+            <button class="primary-action" type="button" id="intro-begin">
+              <svg class="run-icon-play" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7z"></path>
+              </svg>
+              <span class="run-label">Begin Demo</span>
+            </button>
+          </div>
+
+          <div class="intro-flow">
+            <div class="intro-map-wrap" aria-hidden="true">
+            <svg class="intro-taiwan-map" viewBox="0 0 800 620" role="img" aria-labelledby="intro-map-title intro-map-desc">
+              <title id="intro-map-title">Taiwan supply-chain route map</title>
+              <desc id="intro-map-desc">A stylised map of Taiwan with manufacturing, packaging, port, and command nodes connected by animated supply routes.</desc>
+              <defs>
+                <linearGradient id="introRouteGradient" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#76b900"></stop>
+                  <stop offset="55%" stop-color="#00c3ff"></stop>
+                  <stop offset="100%" stop-color="#f0b429"></stop>
+                </linearGradient>
+                <filter id="introRouteGlow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <path class="intro-island-shape" d="M472 43c46 45 70 117 63 190-8 81-46 154-84 218-36 61-77 105-127 120-45 14-84-6-104-44-19-36-21-87-10-145 11-62 36-127 67-189 32-64 69-121 112-148 30-19 59-22 83-2z"></path>
+              <path class="intro-terrain-line" d="M461 78c8 82-11 151-43 212-31 60-76 112-112 167"></path>
+              <path class="intro-terrain-line intro-terrain-line-2" d="M510 173c-46 35-77 76-98 126-23 54-34 115-67 166"></path>
+
+              <path id="introRouteSpine" class="intro-route intro-route-spine" d="M417 103 C455 155, 436 231, 386 286 C352 322, 315 364, 305 423 C296 474, 317 512, 340 538"></path>
+              <path id="introRouteFeeder" class="intro-route intro-route-feeder" d="M313 425 C232 403, 202 346, 239 281 C282 205, 360 151, 417 103"></path>
+              <path id="introRoutePort" class="intro-route intro-route-port" d="M386 286 C467 313, 505 380, 459 446 C429 490, 379 517, 340 538"></path>
+
+              <g class="intro-pulses">
+                <circle class="intro-pulse intro-pulse-spine" r="6">
+                  <animateMotion dur="6.4s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#introRouteSpine"></mpath>
+                  </animateMotion>
+                </circle>
+                <circle class="intro-pulse intro-pulse-spine" r="5">
+                  <animateMotion dur="6.4s" begin="-2.1s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#introRouteSpine"></mpath>
+                  </animateMotion>
+                </circle>
+                <circle class="intro-pulse intro-pulse-feeder" r="5">
+                  <animateMotion dur="7.2s" begin="-0.8s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#introRouteFeeder"></mpath>
+                  </animateMotion>
+                </circle>
+                <circle class="intro-pulse intro-pulse-port" r="5">
+                  <animateMotion dur="5.6s" begin="-1.4s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#introRoutePort"></mpath>
+                  </animateMotion>
+                </circle>
+                <circle class="intro-pulse intro-pulse-port" r="4">
+                  <animateMotion dur="5.6s" begin="-3.5s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#introRoutePort"></mpath>
+                  </animateMotion>
+                </circle>
+              </g>
+
+              <g class="intro-map-node" transform="translate(417 103)">
+                <circle r="13"></circle>
+                <text x="22" y="-10">Taipei</text>
+                <text class="intro-node-meta" x="22" y="9">command</text>
+              </g>
+              <g class="intro-map-node" transform="translate(386 286)">
+                <circle r="13"></circle>
+                <text x="22" y="-10">Hsinchu</text>
+                <text class="intro-node-meta" x="22" y="9">wafer fab</text>
+              </g>
+              <g class="intro-map-node" transform="translate(305 423)">
+                <circle r="13"></circle>
+                <text x="-110" y="-10">Taichung</text>
+                <text class="intro-node-meta" x="-110" y="9">precision parts</text>
+              </g>
+              <g class="intro-map-node" transform="translate(340 538)">
+                <circle r="13"></circle>
+                <text x="22" y="-10">Tainan</text>
+                <text class="intro-node-meta" x="22" y="9">packaging</text>
+              </g>
+              <g class="intro-map-node intro-map-node-muted" transform="translate(239 281)">
+                <circle r="10"></circle>
+                <text x="-94" y="-9">Taoyuan</text>
+                <text class="intro-node-meta" x="-94" y="9">airport</text>
+              </g>
+              <g class="intro-map-node intro-map-node-muted" transform="translate(459 446)">
+                <circle r="10"></circle>
+                <text x="22" y="-9">Kaohsiung</text>
+                <text class="intro-node-meta" x="22" y="9">port</text>
+              </g>
+            </svg>
+          </div>
+
+            <ol class="intro-stages" aria-label="Demo stages">
+              <li>
+                <article class="intro-stage-card">
+                  <div class="intro-stage-head">
+                    <span class="intro-stage-index">01 · Solve</span>
+                    <h3 class="intro-stage-name">cuOpt</h3>
+                  </div>
+                  <p class="intro-stage-detail">Find the best supply plan — what to make, where, and when — accelerated on GPU.</p>
+                </article>
+              </li>
+              <li>
+                <article class="intro-stage-card">
+                  <div class="intro-stage-head">
+                    <span class="intro-stage-index">02 · See</span>
+                    <h3 class="intro-stage-name">Vision Insights</h3>
+                  </div>
+                  <p class="intro-stage-detail">Read the resulting chart and write the takeaway in plain language, like an analyst would.</p>
+                </article>
+              </li>
+              <li>
+                <article class="intro-stage-card">
+                  <div class="intro-stage-head">
+                    <span class="intro-stage-index">03 · Synthesise</span>
+                    <h3 class="intro-stage-name">AIQ Research</h3>
+                  </div>
+                  <p class="intro-stage-detail">Turn the numbers into a board-ready brief with strategy, market, risk, and execution — all cited.</p>
+                </article>
+              </li>
+            </ol>
+          </div>
+
+          <section class="intro-takeaways" aria-labelledby="intro-takeaways-title">
+            <header class="intro-takeaways-head">
+              <h2 id="intro-takeaways-title" class="intro-takeaways-title">Key takeaways</h2>
+              <span class="intro-takeaways-rule" aria-hidden="true"></span>
+            </header>
+            <ul class="intro-takeaways-list">
+            <li class="intro-takeaway">
+              <span class="intro-takeaway-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3.5" y="4" width="17" height="3.5" rx="1"></rect>
+                  <rect x="3.5" y="10.25" width="17" height="3.5" rx="1"></rect>
+                  <rect x="3.5" y="16.5" width="17" height="3.5" rx="1"></rect>
+                </svg>
+              </span>
+              <div class="intro-takeaway-body">
+                <strong class="intro-takeaway-headline">CUDA-X skills, one toolbox</strong>
+                <span class="intro-takeaway-sub">GPU-accelerated cuOpt, Vision Insights, and AIQ Research — packaged once, ready to call.</span>
+              </div>
+            </li>
+            <li class="intro-takeaway">
+              <span class="intro-takeaway-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 2.5 4.5 5.4v6c0 5 3.2 9.2 7.5 10.6 4.3-1.4 7.5-5.6 7.5-10.6v-6L12 2.5z"></path>
+                  <path d="M8.8 12.2l2.4 2.4 4-4.4"></path>
+                </svg>
+              </span>
+              <div class="intro-takeaway-body">
+                <strong class="intro-takeaway-headline">NVIDIA Openshell sandbox</strong>
+                <span class="intro-takeaway-sub">Hardware-isolated runs with GPU passthrough — safe enough for live booth demos.</span>
+              </div>
+            </li>
+            <li class="intro-takeaway">
+              <span class="intro-takeaway-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="6" cy="5.5" r="2.5"></circle>
+                  <circle cx="18" cy="5.5" r="2.5"></circle>
+                  <circle cx="12" cy="18.5" r="2.5"></circle>
+                  <path d="M6 8.5 12 15.5"></path>
+                  <path d="M18 8.5 12 15.5"></path>
+                </svg>
+              </span>
+              <div class="intro-takeaway-body">
+                <strong class="intro-takeaway-headline">Claude or Codex, same skills</strong>
+                <span class="intro-takeaway-sub">Pick the harness; the packaged skills and the demo flow stay identical.</span>
+              </div>
+            </li>
+          </ul>
+          </section>
+        </div>
+      </section>
 
       <main class="cockpit" data-active-stage="brief">
         <nav class="cockpit-rail" aria-label="Demo stages">
@@ -125,7 +311,7 @@
                 <div class="terminal-attached" id="prompt-attached" data-state="sample" hidden>
                   <span class="terminal-attached-glyph" aria-hidden="true">@</span>
                   <span class="terminal-attached-name" id="prompt-attached-name">sample-capacity.png</span>
-                  <button class="terminal-attached-clear" type="button" id="prompt-attached-clear" aria-label="Detach image">×</button>
+                  <button class="terminal-attached-clear" type="button" id="prompt-attached-clear" aria-label="Detach image" title="Detach image">×</button>
                 </div>
 
                 <div class="terminal-prompt-row">
@@ -318,6 +504,7 @@
           </section>
         </aside>
       </main>
+      </div>
     </div>
 
     <aside class="policy-drawer" id="policy-drawer" hidden aria-hidden="true" aria-label="openshell sandbox policy" role="dialog">
@@ -326,7 +513,7 @@
           <span class="eyebrow">openshell sandbox</span>
           <h2>my-assistant policy</h2>
         </div>
-        <button class="icon-button" type="button" id="policy-drawer-close" aria-label="Close policy drawer">
+        <button class="icon-button" type="button" id="policy-drawer-close" aria-label="Close policy drawer" title="Close">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 6 L18 18 M6 18 L18 6"></path>
           </svg>

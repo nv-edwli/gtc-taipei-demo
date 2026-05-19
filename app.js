@@ -279,6 +279,9 @@ function collectEls() {
   els.policyDrawerClose = document.querySelector("#policy-drawer-close");
 
   els.toastStack = document.querySelector("#toast-stack");
+
+  els.introScreen = document.querySelector("#intro-screen");
+  els.introBeginButton = document.querySelector("#intro-begin");
 }
 
 function wireEvents() {
@@ -319,7 +322,14 @@ function wireEvents() {
     }
   });
 
-  els.resetButton.addEventListener("click", () => { resetRun(); });
+  els.resetButton.addEventListener("click", async () => {
+    await resetRun();
+    showIntro();
+  });
+
+  if (els.introBeginButton) {
+    els.introBeginButton.addEventListener("click", () => showCockpit());
+  }
 
   // Prompt
   els.promptInput.addEventListener("input", () => {
@@ -2437,6 +2447,22 @@ function triggerTabWave() {
   void els.planTabs.offsetWidth;
   els.planTabs.classList.add("is-wave");
   setTimeout(() => els.planTabs.classList.remove("is-wave"), 900);
+}
+
+/* ============================================================
+ * Intro / cockpit view toggle
+ *
+ * The two views share a CSS-grid cell inside .view-stack and the
+ * crossfade is a plain opacity transition driven by body[data-view].
+ * No JS-side timing or "leaving" state is needed.
+ * ============================================================ */
+
+function showIntro() {
+  if (els.body) els.body.dataset.view = "intro";
+}
+
+function showCockpit() {
+  if (els.body) els.body.dataset.view = "cockpit";
 }
 
 /* ============================================================
