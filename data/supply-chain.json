@@ -8,7 +8,7 @@
   "scenarioLoad": {
     "total": 10,
     "unit": "planning periods",
-    "display": "10-period MILP",
+    "display": "10-period horizon",
     "placeholder": "— planning periods"
   },
   "scoreContext": {
@@ -20,7 +20,7 @@
   },
   "mapStatus": {
     "baseline": "Zero opening inventory · standard horizon",
-    "solving": "Solving MILP (baseline + what-if)…",
+    "solving": "Solving cuOpt (baseline + what-if)…",
     "solved": "What-if solved · opening stock applied"
   },
   "closing": {
@@ -47,7 +47,7 @@
       "id": "cuopt",
       "name": "cuOpt",
       "icon": "CO",
-      "detail": "GPU-accelerated MILP solver — max-supply multi-period planning with BOM, lead times, and resource capacity.",
+      "detail": "GPU-accelerated cuOpt solver — multi-period supply planning with BOM, lead times, and resource capacity.",
       "match": ["cuopt", "max-supply", "max_supply", "milp", "cuopt.result", "/cuopt/request"]
     },
     {
@@ -119,15 +119,15 @@
       "glyph": "[file]",
       "stages": {
         "brief": {
-          "calling": "Codex reading max-supply scenario brief, BOM structure, and skill manifests from the workspace.",
-          "streaming": "Codex framed the 10-period MILP what-if: SA1=40, RM1=250, RM3=180 opening inventory.",
+          "calling": "Codex reading wafer-supply scenario brief, BOM structure, and skill manifests from the workspace.",
+          "streaming": "Codex framed the 10-period what-if: SA1=40, RM1=250, RM3=180 opening inventory.",
           "done": "Task overview and skill manifests resolved."
         },
         "cuopt": {
-          "calling": "Codex invoking the cuOpt max-supply MILP: baseline + what-if solve across 7 items, 4 processes, 2 resources…",
+          "calling": "Codex invoking cuOpt: baseline + what-if solve across 7 items, 4 processes, 2 resources…",
           "streaming": "Solver returned: FG1 inventory up, RM1 buy orders reduced in early periods, objective improved.",
           "secondary": "What-if chips activated; RM1 buy-order profile updated across 10 periods.",
-          "done": "MILP results normalised for downstream skills."
+          "done": "cuOpt results normalised for downstream skills."
         },
         "vision": {
           "calling": "Codex streaming the inventory chart to Nemotron Omni…",
@@ -141,7 +141,7 @@
             "Pulled competitive landscape · 12 sources",
             "Indexed risk register · 7 sources",
             "Mapped market segment · 9 sources",
-            "Synthesizing board-ready plan…"
+            "Synthesizing executive brief…"
           ],
           "elevate": "Synthesis converging — promoting the plan to the foreground.",
           "summary": "Codex typing the Strategy section first; Market, Risk, and Execution tabs follow.",
@@ -156,15 +156,15 @@
       "glyph": "~",
       "stages": {
         "brief": {
-          "calling": "Claude staging the max-supply scenario brief and preparing cuOpt MILP inputs.",
+          "calling": "Claude staging the wafer-supply scenario brief and preparing cuOpt inputs.",
           "streaming": "Claude framed the 10-period what-if: SA1=40, RM1=250, RM3=180 opening inventory.",
           "done": "Brief assembled — ready to call cuOpt."
         },
         "cuopt": {
-          "calling": "Claude calling the cuOpt max-supply MILP over baseline and what-if scenarios…",
+          "calling": "Claude calling cuOpt over baseline and what-if scenarios…",
           "streaming": "Solver returned: objective improved, FG1 end-inventory up, RM1 early buy orders eliminated.",
           "secondary": "What-if chips highlighted; buy-order timeline updated.",
-          "done": "Claude summarised the MILP results for downstream skills."
+          "done": "Claude summarised the cuOpt results for downstream skills."
         },
         "vision": {
           "calling": "Claude attaching the inventory chart to Nemotron Omni for multimodal interpretation.",
@@ -173,12 +173,12 @@
           "done": "Vision readout joined the running narrative."
         },
         "aiq": {
-          "calling": "Claude submitting the business-plan request to AIQ Research with MILP evidence included.",
+          "calling": "Claude submitting the business-plan request to AIQ Research with cuOpt evidence included.",
           "streaming": [
             "Gathered competitive landscape · 12 sources",
             "Reviewed risk register · 7 sources",
             "Mapped target market · 9 sources",
-            "Drafting the board-ready plan…"
+            "Drafting the executive brief…"
           ],
           "elevate": "Synthesis converging — moving the plan to centre stage.",
           "summary": "Claude writing Strategy first, then weaving Market, Risk, and Execution.",
@@ -217,7 +217,7 @@
       "points": [
         "Phase one: run the max-supply MILP on historical demand and BOM data to validate objective improvement vs actual outcomes.",
         "Phase two: attach Nemotron Omni to inventory-build charts for automated anomaly triage and operator briefings.",
-        "Phase three: trigger AIQ Research for board-level procurement strategy and market-positioning reports."
+        "Phase three: trigger AIQ Research for executive-level procurement strategy and market-positioning reports."
       ]
     }
   }

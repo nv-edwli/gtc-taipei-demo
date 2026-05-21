@@ -1,4 +1,4 @@
-I'm planning Q3 wafer supply for a multi-fab semiconductor operation. The fab network runs a multi-period MILP under bill-of-materials constraints, and I have the current RM1 procurement-profile chart for the planning horizon. I want to see how cuOpt's optimal routing shifts the supply plan when we seed the network with the strategic raw-material positions I've gathered, then interpret what the resulting procurement curve implies for the rest of the production system. The end output should be a board-ready, multifaceted business plan grounded in market, risk, and execution reality.
+I'm planning Q3 wafer supply for a multi-fab semiconductor operation. The fab network runs a multi-period MILP under bill-of-materials constraints, and I have the current RM1 procurement-profile chart for the planning horizon. I want to see how cuOpt's optimal routing shifts the supply plan when we seed the network with the strategic raw-material positions I've gathered, then interpret what the resulting procurement curve implies for the rest of the production system. The end output should be an executive brief: a multifaceted business plan grounded in market, risk, and execution reality.
 
 **Step 1 — Optimal wafer-supply routing with cuOpt** (skills/cuopt/max-supply/run.py). Run two MILP solves:
   1. Baseline: zero opening inventory for all items.
@@ -14,4 +14,4 @@ The script prints a single JSON envelope with kind "cuopt.result" containing bas
 - Strategy: general buyer-profile and go-to-market patterns for advanced manufacturing planning software.
 - Execution: a generic phased execution plan from pilot to production for an AI-native planning tool.
 
-Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single board-ready brief that pulls all four threads — strategy, market, risk, and execution — into one multifaceted business plan for the next planning cycle.
+Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single executive brief that pulls all four threads — strategy, market, risk, and execution — into one multifaceted business plan for the next planning cycle.

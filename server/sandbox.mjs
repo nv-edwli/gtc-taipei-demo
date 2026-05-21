@@ -224,6 +224,7 @@ function buildSystemPrime({ skillsDir, imagePath, harness }) {
   lines.push("- Use these four headers verbatim — no numbering, no extra words (not `## Strategic Plan`, not `## 1. Strategy`).");
   lines.push("- Do NOT add an executive summary, conclusion, or any other section before/between/after them.");
   lines.push("- Do NOT mention `Nemotron Omni`, `Vision Insights`, `AIQ Research`, or `aiq.py` in the synthesis body — those tool names confuse the UI's routing. Refer to findings without naming the skill.");
+  lines.push("- Do NOT use the word `board` in any form anywhere in the synthesis — no `board-ready`, `board ready`, `board-level`, `board level`, `board meeting`, `the board`, etc. If you need to describe the deliverable or audience, say `executive brief` / `executive-level` / `leadership` / `C-suite`, or omit the descriptor entirely. This applies even when the underlying AIQ research output uses board-related phrasing — rewrite it.");
   lines.push("- Keep paragraphs concise (2–4 sentences each).");
   lines.push("");
   return lines.join("\n");

@@ -582,7 +582,15 @@ function updateRunSubstatus() {
     els.runStatus.textContent = "Ready";
     return;
   }
-  const stage = state.autoFollowStage || "brief";
+  // Show the leftmost stage that is actually still in progress, so the top
+  // label stays in sync with the rail's first-unchecked pill. Using
+  // autoFollowStage directly would jump to a later stage (e.g. aiq) when the
+  // harness kicks off the next skill before the previous one is marked done.
+  const inProgress = stageOrder.find((s) => {
+    const sub = state.stageState[s];
+    return sub === "calling" || sub === "streaming";
+  });
+  const stage = inProgress || state.autoFollowStage || "brief";
   const i = stageOrder.indexOf(stage);
   const idx = i >= 0 ? String(i + 1).padStart(2, "0") : "01";
   const labels = { brief: "Task Overview", cuopt: "cuOpt Solve", vision: "Nemotron Omni", aiq: "AIQ Research" };
