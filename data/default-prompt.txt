@@ -1,17 +1,32 @@
-I'm planning Q3 wafer supply for a multi-fab semiconductor operation. The fab network runs a multi-period MILP under bill-of-materials constraints, and I have the current RM1 procurement-profile chart for the planning horizon. I want to see how cuOpt's optimal routing shifts the supply plan when we seed the network with the strategic raw-material positions I've gathered, then interpret what the resulting procurement curve implies for the rest of the production system. The end output should be an executive brief: a multifaceted business plan grounded in market, risk, and execution reality.
+I’m planning Q3 wafer supply for a multi-fab semiconductor operation and need a board-ready business plan for the next planning cycle.
 
-**Step 1 — Optimal wafer-supply routing with cuOpt** (skills/cuopt/max-supply/run.py). Run two MILP solves:
-  1. Baseline: zero opening inventory for all items.
-  2. What-if: SA1=40, RM1=250, RM3=180 units opening inventory — the strategic positions we've staged for this scenario.
+We are evaluating a strategic opening-inventory scenario where we have staged the following materials:
 
-The script prints a single JSON envelope with kind "cuopt.result" containing baseline metrics, what-if metrics, deltas, and an explanation. Parse that envelope — FG1/FG2 end-of-horizon inventory, RM1 buy-order reductions by period, and the objective improvement are the headline numbers that quantify the routing change.
+SA1: 40 units
+RM1: 250 units
+RM3: 180 units
+All other items: zero opening inventory
 
-**Step 2 — Visualize the optimization impact with Nemotron Omni** (vision_analyze.py). The attached chart shows RM1 buy orders across the 10-period horizon — baseline vs the what-if opening-stock plan — and is the current view of the procurement profile this run is producing. Read it against the cuOpt result: confirm which periods show the most buy-order relief, quantify how dramatically RM1 drops in the lowest-procurement periods, infer how quickly FG1 inventory builds in the what-if vs baseline, and flag what the operator should watch as the plan executes.
+Please compare this scenario against a baseline plan with zero opening inventory across all items.
 
-**Step 3 — Strategic context with AIQ Research** (aiq.py). Run a shallow research pass to complete the picture beyond the numbers. Start the query verbatim with "Using only publicly available web sources," — do NOT request NVIDIA internal data, ECI lookups, or enterprise-pipeline intelligence. Cover all four angles:
-- Market: public competitive landscape for GPU-accelerated supply-chain planning and MILP optimisation tools.
-- Risk: publicly-reported risk factors for multi-level BOM semiconductor manufacturing — wafer supply volatility, lead-time uncertainty, geopolitical exposure.
-- Strategy: general buyer-profile and go-to-market patterns for advanced manufacturing planning software.
-- Execution: a generic phased execution plan from pilot to production for an AI-native planning tool.
+I would like the analysis to show how the optimized supply plan changes when these strategic material positions are included, especially:
 
-Stitch the cuOpt MILP numbers, the visual interpretation, and the research findings into a single executive brief that pulls all four threads — strategy, market, risk, and execution — into one multifaceted business plan for the next planning cycle.
+ending inventory for FG1 and FG2
+reductions in RM1 buy orders across the planning horizon
+overall improvement in the planning objective
+which periods show the most procurement relief
+how quickly FG1 inventory builds compared with the baseline
+what execution risks or operator watchouts we should monitor as the plan runs
+
+I also have an RM1 procurement-profile chart for the 10-period planning horizon showing baseline versus the strategic-inventory scenario. Please use it to interpret the procurement curve and explain what it implies for the broader production system.
+
+In addition to the supply-plan results, please add external business context using only publicly available sources. Do not use internal NVIDIA data, customer pipeline data, ECI lookups, or confidential information.
+
+Please cover:
+
+Market: competitive landscape for GPU-accelerated supply-chain planning and advanced optimization tools
+Risk: public risk factors for multi-level BOM semiconductor manufacturing, including wafer supply volatility, lead-time uncertainty, and geopolitical exposure
+Strategy: buyer profile and go-to-market patterns for advanced manufacturing planning software
+Execution: phased plan to move from pilot to production for an AI-native planning workflow
+
+The final deliverable should be an executive brief that brings together the optimized supply-plan results, procurement-profile interpretation, market context, risk assessment, and execution roadmap. Please clearly distinguish scenario findings from validated production forecasts and call out any assumptions or missing inputs.
